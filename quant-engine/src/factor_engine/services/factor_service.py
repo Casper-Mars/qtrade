@@ -13,15 +13,21 @@ import pandas as pd
 
 from ...clients.data_collector_client import DataCollectorClient
 from ..calculators.fundamental import FundamentalFactorCalculator
+from ..calculators.market import MarketFactorCalculator
 from ..calculators.technical import TechnicalFactorCalculator
 from ..dao.factor_dao import FactorDAO
 from ..models.schemas import (
     BatchFundamentalFactorRequest,
     BatchFundamentalFactorResponse,
+    BatchMarketFactorRequest,
+    BatchMarketFactorResponse,
     BatchTechnicalFactorRequest,
     BatchTechnicalFactorResponse,
     FundamentalFactorRequest,
     FundamentalFactorResponse,
+    MarketFactorHistoryResponse,
+    MarketFactorRequest,
+    MarketFactorResponse,
     TechnicalFactorHistoryResponse,
     TechnicalFactorRequest,
     TechnicalFactorResponse,
@@ -44,8 +50,10 @@ class FactorService:
             data_client: 数据采集客户端
         """
         self.factor_dao = factor_dao
+        self.data_client = data_client
         self.technical_calculator = TechnicalFactorCalculator()
         self.fundamental_calculator = FundamentalFactorCalculator(data_client)
+        self.market_calculator = MarketFactorCalculator(data_client)
 
     async def calculate_technical_factors(
         self, request: TechnicalFactorRequest
@@ -522,3 +530,199 @@ class FactorService:
         except Exception as e:
             logger.warning(f"获取缓存基本面因子数据失败: {str(e)}")
             return None
+
+    # ==================== 市场因子相关方法 ====================
+
+    async def calculate_market_factors(
+        self, request: MarketFactorRequest
+    ) -> MarketFactorResponse:
+        """计算市场因子
+
+        Args:
+            request: 市场因子计算请求
+
+        Returns:
+            市场因子计算响应
+        """
+        try:
+            # 获取交易日期
+            trade_date = request.trade_date or datetime.now().strftime("%Y-%m-%d")
+
+            # 计算市场因子
+            factors_result = {}
+            for factor_name in request.factors:
+                if factor_name == "total_market_cap":
+                    value = await self.market_calculator.calculate_total_market_cap(
+                        request.stock_code, trade_date
+                    )
+                elif factor_name == "tradable_market_cap":
+                    value = await self.market_calculator.calculate_tradable_market_cap(
+                        request.stock_code, trade_date
+                    )
+                elif factor_name == "turnover_rate":
+                    value = await self.market_calculator.calculate_turnover_rate(
+                        request.stock_code, trade_date
+                    )
+                elif factor_name == "volume_ratio":
+                    value = await self.market_calculator.calculate_volume_ratio(
+                        request.stock_code, trade_date
+                    )
+                elif factor_name == "price_volatility":
+                    value = await self.market_calculator.calculate_price_volatility(
+                        request.stock_code, trade_date
+                    )
+                elif factor_name == "return_volatility":
+                    value = await self.market_calculator.calculate_return_volatility(
+                        request.stock_code, trade_date
+                    )
+                elif factor_name == "price_momentum":
+                    value = await self.market_calculator.calculate_price_momentum(
+                        request.stock_code, trade_date
+                    )
+                elif factor_name == "return_momentum":
+                    value = await self.market_calculator.calculate_return_momentum(
+                        request.stock_code, trade_date
+                    )
+                else:
+                    logger.warning(f"未知的市场因子: {factor_name}")
+                    continue
+
+                factors_result[factor_name] = value
+
+            # 保存计算结果到数据库
+            await self._save_market_factors(
+                request.stock_code, trade_date, factors_result
+            )
+
+            # 构造响应
+            response = MarketFactorResponse(
+                stock_code=request.stock_code,
+                trade_date=trade_date,
+                factors=factors_result,
+            )
+
+            logger.info(
+                f"成功计算股票{request.stock_code}的市场因子: {list(factors_result.keys())}"
+            )
+            return response
+
+        except Exception as e:
+            logger.error(f"计算市场因子失败: {str(e)}")
+            raise
+
+    async def get_market_factor_history(
+        self, stock_code: str, factor_name: str, start_date: str, end_date: str
+    ) -> MarketFactorHistoryResponse:
+        """获取市场因子历史数据
+
+        Args:
+            stock_code: 股票代码
+            factor_name: 因子名称
+            start_date: 开始日期
+            end_date: 结束日期
+
+        Returns:
+            市场因子历史数据响应
+        """
+        try:
+            history_data = await self.factor_dao.get_market_factor_history(
+                stock_code=stock_code,
+                factor_name=factor_name,
+                start_date=start_date,
+                end_date=end_date,
+            )
+
+            response = MarketFactorHistoryResponse(
+                stock_code=stock_code,
+                factor_name=factor_name,
+                start_date=start_date,
+                end_date=end_date,
+                data=history_data,
+            )
+
+            logger.info(
+                f"成功获取股票{stock_code}因子{factor_name}的历史数据，共{len(history_data)}条记录"
+            )
+            return response
+
+        except Exception as e:
+            logger.error(f"获取市场因子历史数据失败: {str(e)}")
+            raise
+
+    async def batch_calculate_market_factors(
+        self, request: BatchMarketFactorRequest
+    ) -> BatchMarketFactorResponse:
+        """批量计算市场因子
+
+        Args:
+            request: 批量市场因子计算请求
+
+        Returns:
+            批量市场因子计算响应
+        """
+        try:
+            trade_date = request.trade_date or datetime.now().strftime("%Y-%m-%d")
+            total_stocks = len(request.stock_codes)
+            successful_stocks = 0
+            failed_stocks = 0
+            results = {}
+            errors = {}
+
+            for stock_code in request.stock_codes:
+                try:
+                    # 为每个股票创建单独的请求
+                    single_request = MarketFactorRequest(
+                        stock_code=stock_code,
+                        factors=request.factors,
+                        trade_date=trade_date,
+                    )
+
+                    # 计算市场因子
+                    single_response = await self.calculate_market_factors(
+                        single_request
+                    )
+                    results[stock_code] = single_response.factors
+                    successful_stocks += 1
+
+                except Exception as e:
+                    logger.error(f"计算股票{stock_code}的市场因子失败: {str(e)}")
+                    errors[stock_code] = str(e)
+                    failed_stocks += 1
+
+            # 构造响应
+            response = BatchMarketFactorResponse(
+                trade_date=trade_date,
+                total_stocks=total_stocks,
+                successful_stocks=successful_stocks,
+                failed_stocks=failed_stocks,
+                results=results,
+                errors=errors if errors else None,
+            )
+
+            logger.info(f"批量计算完成，成功: {successful_stocks}, 失败: {failed_stocks}")
+            return response
+
+        except Exception as e:
+            logger.error(f"批量计算市场因子失败: {str(e)}")
+            raise
+
+    async def _save_market_factors(
+        self, stock_code: str, trade_date: str, factors: dict[str, float]
+    ) -> None:
+        """保存市场因子到数据库
+
+        Args:
+            stock_code: 股票代码
+            trade_date: 交易日期
+            factors: 因子数据
+        """
+        try:
+            await self.factor_dao.save_market_factors(
+                stock_code=stock_code, trade_date=trade_date, factors=factors
+            )
+            logger.debug(f"成功保存股票{stock_code}的市场因子数据")
+
+        except Exception as e:
+            logger.error(f"保存市场因子数据失败: {str(e)}")
+            # 不抛出异常，避免影响计算流程
+            pass

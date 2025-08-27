@@ -3,3 +3,4 @@ bin/
 *.log
 keys/
 data-collector/configs/config.yaml
+__pycache__/

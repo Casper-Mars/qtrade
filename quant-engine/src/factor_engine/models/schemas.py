@@ -259,6 +259,55 @@ class MarketFactorResponse(BaseFactorModel):
     factors: dict[str, float]
 
 
+class MarketFactorHistoryResponse(BaseFactorModel):
+    """市场因子历史数据响应模型"""
+
+    stock_code: str
+    factor_name: str
+    start_date: str
+    end_date: str
+    data: list[dict[str, str | float]]
+
+
+class BatchMarketFactorRequest(BaseFactorModel):
+    """批量市场因子计算请求模型"""
+
+    stock_codes: list[str] = Field(..., description="股票代码列表")
+    factors: list[str] = Field(..., description="因子列表")
+    trade_date: str | None = Field(
+        default=None, description="交易日期，格式：YYYY-MM-DD"
+    )
+
+    @validator("stock_codes")
+    def validate_stock_codes(cls, v: list[str]) -> list[str]:
+        for code in v:
+            if not code.isdigit() and not (
+                code.startswith("SH") or code.startswith("SZ")
+            ):
+                raise ValueError(f"股票代码{code}格式不正确")
+        return v
+
+    @validator("trade_date")
+    def validate_trade_date(cls, v: str | None) -> str | None:
+        if v is not None:
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError as e:
+                raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
+        return v
+
+
+class BatchMarketFactorResponse(BaseFactorModel):
+    """批量市场因子计算响应模型"""
+
+    trade_date: str
+    total_stocks: int
+    successful_stocks: int
+    failed_stocks: int
+    results: dict[str, dict[str, float]]
+    errors: dict[str, str] | None = None
+
+
 class MarketFactor(BaseFactorModel):
     """市场因子数据模型"""
 

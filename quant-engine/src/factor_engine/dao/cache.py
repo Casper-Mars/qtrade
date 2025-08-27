@@ -290,6 +290,51 @@ class FactorCacheManager:
             print(f"获取市场因子缓存失败: {e}")
             return None
 
+    def cache_market_factors_batch(
+        self, stock_code: str, trade_date: date, factors: dict[str, float]
+    ) -> bool:
+        """批量缓存市场因子数据"""
+        try:
+            key = self._build_key(
+                self.key_prefix["market"],
+                "batch",
+                stock_code,
+                trade_date.isoformat(),
+            )
+
+            data = {
+                "stock_code": stock_code,
+                "trade_date": trade_date.isoformat(),
+                "factors": factors,
+                "cached_at": datetime.now().isoformat(),
+            }
+
+            serialized_data = self._serialize_data(data)
+            return self.redis_client.setex(
+                key, self.ttl_config["hot_factors"], serialized_data
+            )
+        except Exception as e:
+            print(f"批量缓存市场因子数据失败: {e}")
+            return False
+
+    def get_market_factors_batch(self, stock_code: str, trade_date: date) -> Any:
+        """批量获取市场因子缓存数据"""
+        try:
+            key = self._build_key(
+                self.key_prefix["market"],
+                "batch",
+                stock_code,
+                trade_date.isoformat(),
+            )
+
+            cached_data = self.redis_client.get(key)
+            if cached_data:
+                return self._deserialize_data(cached_data)
+            return None
+        except Exception as e:
+            print(f"批量获取市场因子缓存失败: {e}")
+            return None
+
     # ==================== 新闻情绪因子缓存 ====================
 
     def cache_sentiment_factor(

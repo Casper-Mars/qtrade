@@ -11,7 +11,7 @@ import pandas as pd
 from redis import Redis
 from sqlalchemy.orm import Session
 
-from ..models.database import TechnicalFactor
+from ..models.database import MarketFactor, TechnicalFactor
 from .base import FundamentalFactorDAO, TechnicalFactorDAO
 from .cache import FactorCacheManager
 
@@ -507,6 +507,170 @@ class FactorDAO:
 
         except Exception as e:
             logger.error(f"获取最新因子数据失败: {str(e)}")
+            return []
+
+    # ==================== 市场因子相关方法 ====================
+
+    async def save_market_factors(
+        self, stock_code: str, trade_date: str, factors: dict[str, float]
+    ) -> bool:
+        """保存市场因子数据
+
+        Args:
+            stock_code: 股票代码
+            trade_date: 交易日期
+            factors: 因子数据字典
+
+        Returns:
+            保存是否成功
+        """
+        try:
+            trade_date_obj = datetime.strptime(trade_date, "%Y-%m-%d").date()
+            success_count = 0
+
+            for factor_name, factor_value in factors.items():
+                # 检查是否已存在相同记录
+                existing_factor = (
+                    self.db_session.query(MarketFactor)
+                    .filter(
+                        MarketFactor.stock_code == stock_code,
+                        MarketFactor.factor_name == factor_name,
+                        MarketFactor.trade_date == trade_date_obj,
+                    )
+                    .first()
+                )
+
+                if existing_factor:
+                    # 更新现有记录
+                    existing_factor.factor_value = factor_value
+                    existing_factor.updated_at = datetime.now()
+                else:
+                    # 创建新记录
+                    new_factor = MarketFactor(
+                        stock_code=stock_code,
+                        factor_name=factor_name,
+                        factor_value=factor_value,
+                        trade_date=trade_date_obj,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now(),
+                    )
+                    self.db_session.add(new_factor)
+
+                success_count += 1
+
+            # 提交事务
+            self.db_session.commit()
+
+            # 缓存数据
+            for factor_name, factor_value in factors.items():
+                self.cache_manager.cache_market_factor(
+                    stock_code=stock_code,
+                    factor_name=factor_name,
+                    trade_date=trade_date_obj,
+                    factor_value=factor_value,
+                )
+
+            logger.debug(
+                f"成功保存股票{stock_code}的{success_count}个市场因子数据"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"保存市场因子数据失败: {str(e)}")
+            self.db_session.rollback()
+            return False
+
+    async def get_market_factor_history(
+        self, stock_code: str, factor_name: str, start_date: str, end_date: str
+    ) -> list[dict[str, Any]]:
+        """获取市场因子历史数据
+
+        Args:
+            stock_code: 股票代码
+            factor_name: 因子名称
+            start_date: 开始日期
+            end_date: 结束日期
+
+        Returns:
+            市场因子历史数据列表
+        """
+        try:
+            start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+            factors = (
+                self.db_session.query(MarketFactor)
+                .filter(
+                    MarketFactor.stock_code == stock_code,
+                    MarketFactor.factor_name == factor_name,
+                    MarketFactor.trade_date >= start_date_obj,
+                    MarketFactor.trade_date <= end_date_obj,
+                )
+                .order_by(MarketFactor.trade_date.asc())
+                .all()
+            )
+
+            # 转换为字典格式
+            result = []
+            for factor in factors:
+                result.append(
+                    {
+                        "trade_date": factor.trade_date.isoformat(),
+                        "factor_value": factor.factor_value,
+                        "created_at": factor.created_at.isoformat(),
+                    }
+                )
+
+            logger.debug(
+                f"成功获取股票{stock_code}因子{factor_name}的历史数据，共{len(result)}条记录"
+            )
+            return result
+
+        except Exception as e:
+            logger.error(f"获取市场因子历史数据失败: {str(e)}")
+            return []
+
+    async def get_latest_market_factors(
+        self, stock_code: str, factor_names: list[str], limit: int = 1
+    ) -> list[dict[str, Any]]:
+        """获取最新的市场因子数据
+
+        Args:
+            stock_code: 股票代码
+            factor_names: 因子名称列表
+            limit: 返回记录数量限制
+
+        Returns:
+            最新的市场因子数据列表
+        """
+        try:
+            latest_factors = (
+                self.db_session.query(MarketFactor)
+                .filter(
+                    MarketFactor.stock_code == stock_code,
+                    MarketFactor.factor_name.in_(factor_names),
+                )
+                .order_by(MarketFactor.trade_date.desc())
+                .limit(limit * len(factor_names))
+                .all()
+            )
+
+            # 转换为字典格式
+            result = []
+            for factor in latest_factors:
+                result.append(
+                    {
+                        "factor_name": factor.factor_name,
+                        "factor_value": factor.factor_value,
+                        "trade_date": factor.trade_date.isoformat(),
+                        "created_at": factor.created_at.isoformat(),
+                    }
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"获取最新市场因子数据失败: {str(e)}")
             return []
 
     def close(self) -> None:

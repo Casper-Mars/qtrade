@@ -23,8 +23,8 @@ class DataCollectorClient:
             timeout=self.timeout,
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": f"{settings.app_name}/{settings.app_version}"
-            }
+                "User-Agent": f"{settings.app_name}/{settings.app_version}",
+            },
         )
         return self
 
@@ -38,7 +38,7 @@ class DataCollectorClient:
         method: str,
         endpoint: str,
         params: dict[str, Any] | None = None,
-        json_data: dict[str, Any] | None = None
+        json_data: dict[str, Any] | None = None,
     ) -> Any:
         """通用请求方法"""
         if not self._client:
@@ -46,10 +46,7 @@ class DataCollectorClient:
 
         try:
             response = await self._client.request(
-                method=method,
-                url=endpoint,
-                params=params,
-                json=json_data
+                method=method, url=endpoint, params=params, json=json_data
             )
             response.raise_for_status()
             return response.json()
@@ -64,10 +61,7 @@ class DataCollectorClient:
             raise
 
     async def get_stock_data(
-        self,
-        symbol: str,
-        start_date: str | None = None,
-        end_date: str | None = None
+        self, symbol: str, start_date: str | None = None, end_date: str | None = None
     ) -> Any:
         """获取股票数据"""
         params: dict[str, Any] = {"symbol": symbol}
@@ -79,30 +73,16 @@ class DataCollectorClient:
         result = await self._request("GET", "/api/v1/stock/data", params=params)
         return result.get("data", [])
 
-    async def get_financial_data(
-        self,
-        symbol: str,
-        report_type: str = "annual"
-    ) -> Any:
+    async def get_financial_data(self, symbol: str, report_type: str = "annual") -> Any:
         """获取财务数据"""
-        params: dict[str, Any] = {
-            "symbol": symbol,
-            "report_type": report_type
-        }
+        params: dict[str, Any] = {"symbol": symbol, "report_type": report_type}
 
         result = await self._request("GET", "/api/v1/financial/data", params=params)
         return result.get("data", [])
 
-    async def get_market_data(
-        self,
-        market: str = "A",
-        data_type: str = "index"
-    ) -> Any:
+    async def get_market_data(self, market: str = "A", data_type: str = "index") -> Any:
         """获取市场数据"""
-        params: dict[str, Any] = {
-            "market": market,
-            "data_type": data_type
-        }
+        params: dict[str, Any] = {"market": market, "data_type": data_type}
 
         result = await self._request("GET", "/api/v1/market/data", params=params)
         return result.get("data", [])
@@ -113,7 +93,7 @@ class DataCollectorClient:
         category: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> Any:
         """获取新闻数据"""
         params: dict[str, Any] = {"limit": limit}
@@ -133,7 +113,7 @@ class DataCollectorClient:
         self,
         policy_type: str | None = None,
         start_date: str | None = None,
-        end_date: str | None = None
+        end_date: str | None = None,
     ) -> Any:
         """获取政策数据"""
         params: dict[str, Any] = {}

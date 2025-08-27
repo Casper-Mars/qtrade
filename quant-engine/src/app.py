@@ -51,7 +51,7 @@ def create_app() -> FastAPI:
         description="量化计算引擎服务",
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None,
-        lifespan=lifespan
+        lifespan=lifespan,
     )
 
     # 设置CORS中间件
@@ -81,7 +81,7 @@ def create_app() -> FastAPI:
                 "status": "ok" if health_status["overall"] else "degraded",
                 "service": settings.app_name,
                 "version": settings.app_version,
-                "health": health_status
+                "health": health_status,
             }
         except Exception as e:
             logger.error(f"健康检查失败: {e}")
@@ -89,7 +89,7 @@ def create_app() -> FastAPI:
                 "status": "error",
                 "service": settings.app_name,
                 "version": settings.app_version,
-                "error": str(e)
+                "error": str(e),
             }
 
     # 根路径
@@ -100,7 +100,7 @@ def create_app() -> FastAPI:
             "service": settings.app_name,
             "version": settings.app_version,
             "description": "量化计算引擎服务",
-            "docs": "/docs" if settings.debug else "文档已禁用"
+            "docs": "/docs" if settings.debug else "文档已禁用",
         }
 
     logger.info(f"FastAPI应用创建完成: {settings.app_name} v{settings.app_version}")

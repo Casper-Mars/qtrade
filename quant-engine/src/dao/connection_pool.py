@@ -67,11 +67,7 @@ class ConnectionPoolManager:
 
     async def health_check(self) -> dict:
         """连接池健康检查"""
-        health_status = {
-            "mysql": False,
-            "redis": False,
-            "overall": False
-        }
+        health_status = {"mysql": False, "redis": False, "overall": False}
 
         # 检查MySQL连接
         try:
@@ -137,12 +133,12 @@ async def get_connection_stats() -> dict[str, Any]:
         mysql_stats = {
             "engine_url": str(async_engine.url),
             "pool_class": pool.__class__.__name__,
-            "engine_name": async_engine.name or "default"
+            "engine_name": async_engine.name or "default",
         }
 
         # 尝试获取可用的池统计信息
-        if hasattr(pool, '_pool'):
-            mysql_stats["pool_available"] = getattr(pool._pool, 'qsize', lambda: 0)()
+        if hasattr(pool, "_pool"):
+            mysql_stats["pool_available"] = getattr(pool._pool, "qsize", lambda: 0)()
 
     except Exception as e:
         mysql_stats = {"error": str(e)}
@@ -152,12 +148,9 @@ async def get_connection_stats() -> dict[str, Any]:
         "connected_clients": 0,
         "used_memory": 0,
         "keyspace_hits": 0,
-        "keyspace_misses": 0
+        "keyspace_misses": 0,
     }
 
-    stats = {
-        "mysql": mysql_stats,
-        "redis": redis_stats
-    }
+    stats = {"mysql": mysql_stats, "redis": redis_stats}
 
     return stats

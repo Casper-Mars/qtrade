@@ -7,7 +7,6 @@
 - 布林带 (Bollinger Bands)
 """
 
-
 from collections.abc import Callable
 from typing import Any
 
@@ -23,17 +22,17 @@ class TechnicalFactorCalculator:
     def __init__(self) -> None:
         """初始化技术因子计算器"""
         self.supported_factors: dict[str, Callable[[pd.DataFrame, Any], Any]] = {
-            'MA': self.calculate_ma,
-            'RSI': self.calculate_rsi,
-            'MACD': self.calculate_macd,
-            'BOLL': self.calculate_bollinger_bands
+            "MA": self.calculate_ma,
+            "RSI": self.calculate_rsi,
+            "MACD": self.calculate_macd,
+            "BOLL": self.calculate_bollinger_bands,
         }
 
     def calculate_factors(
         self,
         price_data: pd.DataFrame,
         factors: list[str],
-        periods: dict[str, int] | None = None
+        periods: dict[str, int] | None = None,
     ) -> dict[str, float | dict[str, float]]:
         """计算指定的技术因子
 
@@ -50,10 +49,10 @@ class TechnicalFactorCalculator:
 
         # 默认周期设置
         default_periods = {
-            'MA': 20,
-            'RSI': 14,
-            'MACD': {'fast': 12, 'slow': 26, 'signal': 9},
-            'BOLL': 20
+            "MA": 20,
+            "RSI": 14,
+            "MACD": {"fast": 12, "slow": 26, "signal": 9},
+            "BOLL": 20,
         }
 
         if periods is None:
@@ -90,7 +89,7 @@ class TechnicalFactorCalculator:
         if len(price_data) < period:
             raise ValueError(f"数据长度不足，需要至少{period}个数据点")
 
-        close_prices = price_data['close'].astype(float)
+        close_prices = price_data["close"].astype(float)
         ma_values = close_prices.rolling(window=period).mean()
 
         # 返回最新值
@@ -110,7 +109,7 @@ class TechnicalFactorCalculator:
         if len(price_data) < period + 1:
             raise ValueError(f"数据长度不足，需要至少{period + 1}个数据点")
 
-        close_prices = price_data['close'].astype(float)
+        close_prices = price_data["close"].astype(float)
 
         # 计算价格变化
         delta = close_prices.diff()
@@ -132,9 +131,7 @@ class TechnicalFactorCalculator:
         return float(latest_rsi) if not pd.isna(latest_rsi) else 50.0
 
     def calculate_macd(
-        self,
-        price_data: pd.DataFrame,
-        periods: dict[str, int] | None = None
+        self, price_data: pd.DataFrame, periods: dict[str, int] | None = None
     ) -> dict[str, float]:
         """计算MACD指标
 
@@ -146,16 +143,18 @@ class TechnicalFactorCalculator:
             包含MACD, Signal, Histogram的字典
         """
         if periods is None:
-            periods = {'fast': 12, 'slow': 26, 'signal': 9}
+            periods = {"fast": 12, "slow": 26, "signal": 9}
 
-        fast_period = periods['fast']
-        slow_period = periods['slow']
-        signal_period = periods['signal']
+        fast_period = periods["fast"]
+        slow_period = periods["slow"]
+        signal_period = periods["signal"]
 
         if len(price_data) < slow_period + signal_period:
-            raise ValueError(f"数据长度不足，需要至少{slow_period + signal_period}个数据点")
+            raise ValueError(
+                f"数据长度不足，需要至少{slow_period + signal_period}个数据点"
+            )
 
-        close_prices = price_data['close'].astype(float)
+        close_prices = price_data["close"].astype(float)
 
         # 计算快速和慢速EMA
         ema_fast = close_prices.ewm(span=fast_period).mean()
@@ -171,16 +170,19 @@ class TechnicalFactorCalculator:
         histogram = macd_line - signal_line
 
         return {
-            'MACD': float(macd_line.iloc[-1]) if not pd.isna(macd_line.iloc[-1]) else 0.0,
-            'Signal': float(signal_line.iloc[-1]) if not pd.isna(signal_line.iloc[-1]) else 0.0,
-            'Histogram': float(histogram.iloc[-1]) if not pd.isna(histogram.iloc[-1]) else 0.0
+            "MACD": float(macd_line.iloc[-1])
+            if not pd.isna(macd_line.iloc[-1])
+            else 0.0,
+            "Signal": float(signal_line.iloc[-1])
+            if not pd.isna(signal_line.iloc[-1])
+            else 0.0,
+            "Histogram": float(histogram.iloc[-1])
+            if not pd.isna(histogram.iloc[-1])
+            else 0.0,
         }
 
     def calculate_bollinger_bands(
-        self,
-        price_data: pd.DataFrame,
-        period: int = 20,
-        std_dev: float = 2.0
+        self, price_data: pd.DataFrame, period: int = 20, std_dev: float = 2.0
     ) -> dict[str, float]:
         """计算布林带指标
 
@@ -195,7 +197,7 @@ class TechnicalFactorCalculator:
         if len(price_data) < period:
             raise ValueError(f"数据长度不足，需要至少{period}个数据点")
 
-        close_prices = price_data['close'].astype(float)
+        close_prices = price_data["close"].astype(float)
 
         # 计算中轨（移动平均线）
         middle_band = close_prices.rolling(window=period).mean()
@@ -208,9 +210,15 @@ class TechnicalFactorCalculator:
         lower_band = middle_band - (std * std_dev)
 
         return {
-            'Upper': float(upper_band.iloc[-1]) if not pd.isna(upper_band.iloc[-1]) else 0.0,
-            'Middle': float(middle_band.iloc[-1]) if not pd.isna(middle_band.iloc[-1]) else 0.0,
-            'Lower': float(lower_band.iloc[-1]) if not pd.isna(lower_band.iloc[-1]) else 0.0
+            "Upper": float(upper_band.iloc[-1])
+            if not pd.isna(upper_band.iloc[-1])
+            else 0.0,
+            "Middle": float(middle_band.iloc[-1])
+            if not pd.isna(middle_band.iloc[-1])
+            else 0.0,
+            "Lower": float(lower_band.iloc[-1])
+            if not pd.isna(lower_band.iloc[-1])
+            else 0.0,
         }
 
     def get_supported_factors(self) -> list[str]:
@@ -230,12 +238,14 @@ class TechnicalFactorCalculator:
         Returns:
             验证结果
         """
-        required_columns = ['open', 'high', 'low', 'close', 'volume']
+        required_columns = ["open", "high", "low", "close", "volume"]
 
         if price_data.empty:
             return False
 
-        missing_columns = [col for col in required_columns if col not in price_data.columns]
+        missing_columns = [
+            col for col in required_columns if col not in price_data.columns
+        ]
         if missing_columns:
             raise ValueError(f"缺少必要的列: {missing_columns}")
 

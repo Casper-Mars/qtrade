@@ -19,7 +19,7 @@ async def basic_health_check() -> dict[str, Any]:
     return {
         "status": "ok",
         "service": settings.app_name,
-        "version": settings.app_version
+        "version": settings.app_version,
     }
 
 
@@ -41,10 +41,7 @@ async def detailed_health_check() -> dict[str, Any]:
         # 获取连接池统计
         connection_stats = await get_connection_stats()
 
-        overall_status = (
-            health_status["overall"] and
-            data_collector_status
-        )
+        overall_status = health_status["overall"] and data_collector_status
 
         return {
             "status": "ok" if overall_status else "degraded",
@@ -53,10 +50,10 @@ async def detailed_health_check() -> dict[str, Any]:
             "components": {
                 "mysql": health_status["mysql"],
                 "redis": health_status["redis"],
-                "data_collector": data_collector_status
+                "data_collector": data_collector_status,
             },
             "connection_stats": connection_stats,
-            "overall": overall_status
+            "overall": overall_status,
         }
 
     except Exception as e:
@@ -65,7 +62,7 @@ async def detailed_health_check() -> dict[str, Any]:
             "status": "error",
             "service": settings.app_name,
             "version": settings.app_version,
-            "error": str(e)
+            "error": str(e),
         }
 
 
@@ -84,7 +81,7 @@ async def readiness_check() -> dict[str, Any]:
         return {
             "status": "ready" if is_ready else "not_ready",
             "service": settings.app_name,
-            "ready": is_ready
+            "ready": is_ready,
         }
 
     except Exception as e:
@@ -93,15 +90,11 @@ async def readiness_check() -> dict[str, Any]:
             "status": "error",
             "service": settings.app_name,
             "ready": False,
-            "error": str(e)
+            "error": str(e),
         }
 
 
 @router.get("/liveness", summary="存活检查")
 async def liveness_check() -> dict[str, Any]:
     """存活检查，用于Kubernetes等容器编排"""
-    return {
-        "status": "alive",
-        "service": settings.app_name,
-        "alive": True
-    }
+    return {"status": "alive", "service": settings.app_name, "alive": True}

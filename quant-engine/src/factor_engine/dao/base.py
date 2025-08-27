@@ -73,8 +73,14 @@ class BaseFactorDAO(ABC):
 class TechnicalFactorDAO(BaseFactorDAO):
     """技术因子数据访问类"""
 
-    def create(self, stock_code: str, factor_name: str, factor_value: float,
-               trade_date: date, **kwargs: Any) -> TechnicalFactor:
+    def create(
+        self,
+        stock_code: str,
+        factor_name: str,
+        factor_value: float,
+        trade_date: date,
+        **kwargs: Any,
+    ) -> TechnicalFactor:
         """创建技术因子数据"""
         try:
             factor = TechnicalFactor(
@@ -83,7 +89,7 @@ class TechnicalFactorDAO(BaseFactorDAO):
                 factor_value=factor_value,
                 trade_date=trade_date,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
 
             self.db_session.add(factor)
@@ -95,27 +101,39 @@ class TechnicalFactorDAO(BaseFactorDAO):
 
     def get_by_id(self, factor_id: int) -> TechnicalFactor | None:
         """根据ID获取技术因子数据"""
-        return self.db_session.query(TechnicalFactor).filter(
-            TechnicalFactor.id == factor_id
-        ).first()
+        return (
+            self.db_session.query(TechnicalFactor)
+            .filter(TechnicalFactor.id == factor_id)
+            .first()
+        )
 
-    def get_by_stock_and_date(self, stock_code: str, trade_date: date) -> list[TechnicalFactor]:
+    def get_by_stock_and_date(
+        self, stock_code: str, trade_date: date
+    ) -> list[TechnicalFactor]:
         """根据股票代码和日期获取技术因子数据"""
-        return self.db_session.query(TechnicalFactor).filter(
-            and_(
-                TechnicalFactor.stock_code == stock_code,
-                TechnicalFactor.trade_date == trade_date
+        return (
+            self.db_session.query(TechnicalFactor)
+            .filter(
+                and_(
+                    TechnicalFactor.stock_code == stock_code,
+                    TechnicalFactor.trade_date == trade_date,
+                )
             )
-        ).all()
+            .all()
+        )
 
-    def get_by_stock_and_factor(self, stock_code: str, factor_name: str,
-                               start_date: date | None = None,
-                               end_date: date | None = None) -> list[TechnicalFactor]:
+    def get_by_stock_and_factor(
+        self,
+        stock_code: str,
+        factor_name: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[TechnicalFactor]:
         """根据股票代码和因子名称获取数据"""
         query = self.db_session.query(TechnicalFactor).filter(
             and_(
                 TechnicalFactor.stock_code == stock_code,
-                TechnicalFactor.factor_name == factor_name
+                TechnicalFactor.factor_name == factor_name,
             )
         )
 
@@ -129,11 +147,17 @@ class TechnicalFactorDAO(BaseFactorDAO):
     def update(self, factor_id: int, **kwargs: Any) -> bool:
         """更新技术因子数据"""
         try:
-            kwargs['updated_at'] = datetime.now()
-            update_data = {getattr(TechnicalFactor, k): v for k, v in kwargs.items() if hasattr(TechnicalFactor, k)}
-            result = self.db_session.query(TechnicalFactor).filter(
-                TechnicalFactor.id == factor_id
-            ).update(update_data)
+            kwargs["updated_at"] = datetime.now()
+            update_data = {
+                getattr(TechnicalFactor, k): v
+                for k, v in kwargs.items()
+                if hasattr(TechnicalFactor, k)
+            }
+            result = (
+                self.db_session.query(TechnicalFactor)
+                .filter(TechnicalFactor.id == factor_id)
+                .update(update_data)
+            )
 
             self.db_session.commit()
             return result > 0
@@ -144,9 +168,11 @@ class TechnicalFactorDAO(BaseFactorDAO):
     def delete(self, factor_id: int) -> bool:
         """删除技术因子数据"""
         try:
-            result = self.db_session.query(TechnicalFactor).filter(
-                TechnicalFactor.id == factor_id
-            ).delete()
+            result = (
+                self.db_session.query(TechnicalFactor)
+                .filter(TechnicalFactor.id == factor_id)
+                .delete()
+            )
 
             self.db_session.commit()
             return result > 0
@@ -154,18 +180,31 @@ class TechnicalFactorDAO(BaseFactorDAO):
             self.db_session.rollback()
             raise e
 
-    def get_latest_by_stock(self, stock_code: str, limit: int = 10) -> list[TechnicalFactor]:
+    def get_latest_by_stock(
+        self, stock_code: str, limit: int = 10
+    ) -> list[TechnicalFactor]:
         """获取股票最新的技术因子数据"""
-        return self.db_session.query(TechnicalFactor).filter(
-            TechnicalFactor.stock_code == stock_code
-        ).order_by(desc(TechnicalFactor.trade_date)).limit(limit).all()
+        return (
+            self.db_session.query(TechnicalFactor)
+            .filter(TechnicalFactor.stock_code == stock_code)
+            .order_by(desc(TechnicalFactor.trade_date))
+            .limit(limit)
+            .all()
+        )
 
 
 class FundamentalFactorDAO(BaseFactorDAO):
     """基本面因子数据访问类"""
 
-    def create(self, stock_code: str, factor_name: str, factor_value: float,
-               report_period: str, ann_date: date, **kwargs: Any) -> FundamentalFactor:
+    def create(
+        self,
+        stock_code: str,
+        factor_name: str,
+        factor_value: float,
+        report_period: str,
+        ann_date: date,
+        **kwargs: Any,
+    ) -> FundamentalFactor:
         """创建基本面因子数据"""
         try:
             factor = FundamentalFactor(
@@ -175,7 +214,7 @@ class FundamentalFactorDAO(BaseFactorDAO):
                 report_period=report_period,
                 ann_date=ann_date,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
 
             self.db_session.add(factor)
@@ -187,36 +226,78 @@ class FundamentalFactorDAO(BaseFactorDAO):
 
     def get_by_id(self, factor_id: int) -> FundamentalFactor | None:
         """根据ID获取基本面因子数据"""
-        return self.db_session.query(FundamentalFactor).filter(
-            FundamentalFactor.id == factor_id
-        ).first()
+        return (
+            self.db_session.query(FundamentalFactor)
+            .filter(FundamentalFactor.id == factor_id)
+            .first()
+        )
 
-    def get_by_stock_and_date(self, stock_code: str, ann_date: date) -> list[FundamentalFactor]:
+    def get_by_stock_and_date(
+        self, stock_code: str, ann_date: date
+    ) -> list[FundamentalFactor]:
         """根据股票代码和公告日期获取基本面因子数据"""
-        return self.db_session.query(FundamentalFactor).filter(
-            and_(
-                FundamentalFactor.stock_code == stock_code,
-                FundamentalFactor.ann_date == ann_date
+        return (
+            self.db_session.query(FundamentalFactor)
+            .filter(
+                and_(
+                    FundamentalFactor.stock_code == stock_code,
+                    FundamentalFactor.ann_date == ann_date,
+                )
             )
-        ).all()
+            .all()
+        )
 
-    def get_by_stock_and_period(self, stock_code: str, report_period: str) -> list[FundamentalFactor]:
+    def get_by_stock_and_period(
+        self, stock_code: str, report_period: str
+    ) -> list[FundamentalFactor]:
         """根据股票代码和报告期获取基本面因子数据"""
-        return self.db_session.query(FundamentalFactor).filter(
+        return (
+            self.db_session.query(FundamentalFactor)
+            .filter(
+                and_(
+                    FundamentalFactor.stock_code == stock_code,
+                    FundamentalFactor.report_period == report_period,
+                )
+            )
+            .all()
+        )
+
+    def get_by_stock_and_factor(
+        self,
+        stock_code: str,
+        factor_name: str,
+        start_period: str | None = None,
+        end_period: str | None = None,
+    ) -> list[FundamentalFactor]:
+        """根据股票代码和因子名称获取数据"""
+        query = self.db_session.query(FundamentalFactor).filter(
             and_(
                 FundamentalFactor.stock_code == stock_code,
-                FundamentalFactor.report_period == report_period
+                FundamentalFactor.factor_name == factor_name,
             )
-        ).all()
+        )
+
+        if start_period:
+            query = query.filter(FundamentalFactor.report_period >= start_period)
+        if end_period:
+            query = query.filter(FundamentalFactor.report_period <= end_period)
+
+        return query.order_by(desc(FundamentalFactor.report_period)).all()
 
     def update(self, factor_id: int, **kwargs: Any) -> bool:
         """更新基本面因子数据"""
         try:
-            kwargs['updated_at'] = datetime.now()
-            update_data = {getattr(FundamentalFactor, k): v for k, v in kwargs.items() if hasattr(FundamentalFactor, k)}
-            result = self.db_session.query(FundamentalFactor).filter(
-                FundamentalFactor.id == factor_id
-            ).update(update_data)
+            kwargs["updated_at"] = datetime.now()
+            update_data = {
+                getattr(FundamentalFactor, k): v
+                for k, v in kwargs.items()
+                if hasattr(FundamentalFactor, k)
+            }
+            result = (
+                self.db_session.query(FundamentalFactor)
+                .filter(FundamentalFactor.id == factor_id)
+                .update(update_data)
+            )
 
             self.db_session.commit()
             return result > 0
@@ -227,9 +308,11 @@ class FundamentalFactorDAO(BaseFactorDAO):
     def delete(self, factor_id: int) -> bool:
         """删除基本面因子数据"""
         try:
-            result = self.db_session.query(FundamentalFactor).filter(
-                FundamentalFactor.id == factor_id
-            ).delete()
+            result = (
+                self.db_session.query(FundamentalFactor)
+                .filter(FundamentalFactor.id == factor_id)
+                .delete()
+            )
 
             self.db_session.commit()
             return result > 0
@@ -237,18 +320,30 @@ class FundamentalFactorDAO(BaseFactorDAO):
             self.db_session.rollback()
             raise e
 
-    def get_latest_by_stock(self, stock_code: str, limit: int = 10) -> list[FundamentalFactor]:
+    def get_latest_by_stock(
+        self, stock_code: str, limit: int = 10
+    ) -> list[FundamentalFactor]:
         """获取股票最新的基本面因子数据"""
-        return self.db_session.query(FundamentalFactor).filter(
-            FundamentalFactor.stock_code == stock_code
-        ).order_by(desc(FundamentalFactor.ann_date)).limit(limit).all()
+        return (
+            self.db_session.query(FundamentalFactor)
+            .filter(FundamentalFactor.stock_code == stock_code)
+            .order_by(desc(FundamentalFactor.ann_date))
+            .limit(limit)
+            .all()
+        )
 
 
 class MarketFactorDAO(BaseFactorDAO):
     """市场因子数据访问类"""
 
-    def create(self, stock_code: str, factor_name: str, factor_value: float,
-               trade_date: date, **kwargs: Any) -> MarketFactor:
+    def create(
+        self,
+        stock_code: str,
+        factor_name: str,
+        factor_value: float,
+        trade_date: date,
+        **kwargs: Any,
+    ) -> MarketFactor:
         """创建市场因子数据"""
         try:
             factor = MarketFactor(
@@ -257,7 +352,7 @@ class MarketFactorDAO(BaseFactorDAO):
                 factor_value=factor_value,
                 trade_date=trade_date,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
 
             self.db_session.add(factor)
@@ -269,27 +364,41 @@ class MarketFactorDAO(BaseFactorDAO):
 
     def get_by_id(self, factor_id: int) -> MarketFactor | None:
         """根据ID获取市场因子数据"""
-        return self.db_session.query(MarketFactor).filter(
-            MarketFactor.id == factor_id
-        ).first()
+        return (
+            self.db_session.query(MarketFactor)
+            .filter(MarketFactor.id == factor_id)
+            .first()
+        )
 
-    def get_by_stock_and_date(self, stock_code: str, trade_date: date) -> list[MarketFactor]:
+    def get_by_stock_and_date(
+        self, stock_code: str, trade_date: date
+    ) -> list[MarketFactor]:
         """根据股票代码和日期获取市场因子数据"""
-        return self.db_session.query(MarketFactor).filter(
-            and_(
-                MarketFactor.stock_code == stock_code,
-                MarketFactor.trade_date == trade_date
+        return (
+            self.db_session.query(MarketFactor)
+            .filter(
+                and_(
+                    MarketFactor.stock_code == stock_code,
+                    MarketFactor.trade_date == trade_date,
+                )
             )
-        ).all()
+            .all()
+        )
 
     def update(self, factor_id: int, **kwargs: Any) -> bool:
         """更新市场因子数据"""
         try:
-            kwargs['updated_at'] = datetime.now()
-            update_data = {getattr(MarketFactor, k): v for k, v in kwargs.items() if hasattr(MarketFactor, k)}
-            result = self.db_session.query(MarketFactor).filter(
-                MarketFactor.id == factor_id
-            ).update(update_data)
+            kwargs["updated_at"] = datetime.now()
+            update_data = {
+                getattr(MarketFactor, k): v
+                for k, v in kwargs.items()
+                if hasattr(MarketFactor, k)
+            }
+            result = (
+                self.db_session.query(MarketFactor)
+                .filter(MarketFactor.id == factor_id)
+                .update(update_data)
+            )
 
             self.db_session.commit()
             return result > 0
@@ -300,9 +409,11 @@ class MarketFactorDAO(BaseFactorDAO):
     def delete(self, factor_id: int) -> bool:
         """删除市场因子数据"""
         try:
-            result = self.db_session.query(MarketFactor).filter(
-                MarketFactor.id == factor_id
-            ).delete()
+            result = (
+                self.db_session.query(MarketFactor)
+                .filter(MarketFactor.id == factor_id)
+                .delete()
+            )
 
             self.db_session.commit()
             return result > 0
@@ -310,18 +421,30 @@ class MarketFactorDAO(BaseFactorDAO):
             self.db_session.rollback()
             raise e
 
-    def get_latest_by_stock(self, stock_code: str, limit: int = 10) -> list[MarketFactor]:
+    def get_latest_by_stock(
+        self, stock_code: str, limit: int = 10
+    ) -> list[MarketFactor]:
         """获取股票最新的市场因子数据"""
-        return self.db_session.query(MarketFactor).filter(
-            MarketFactor.stock_code == stock_code
-        ).order_by(desc(MarketFactor.trade_date)).limit(limit).all()
+        return (
+            self.db_session.query(MarketFactor)
+            .filter(MarketFactor.stock_code == stock_code)
+            .order_by(desc(MarketFactor.trade_date))
+            .limit(limit)
+            .all()
+        )
 
 
 class NewsSentimentFactorDAO(BaseFactorDAO):
     """新闻情绪因子数据访问类"""
 
-    def create(self, stock_code: str, factor_value: float, calculation_date: date,
-               news_count: int, **kwargs: Any) -> NewsSentimentFactor:
+    def create(
+        self,
+        stock_code: str,
+        factor_value: float,
+        calculation_date: date,
+        news_count: int,
+        **kwargs: Any,
+    ) -> NewsSentimentFactor:
         """创建新闻情绪因子数据"""
         try:
             factor = NewsSentimentFactor(
@@ -330,7 +453,7 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
                 calculation_date=calculation_date,
                 news_count=news_count,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
 
             self.db_session.add(factor)
@@ -342,27 +465,41 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
 
     def get_by_id(self, factor_id: int) -> NewsSentimentFactor | None:
         """根据ID获取新闻情绪因子数据"""
-        return self.db_session.query(NewsSentimentFactor).filter(
-            NewsSentimentFactor.id == factor_id
-        ).first()
+        return (
+            self.db_session.query(NewsSentimentFactor)
+            .filter(NewsSentimentFactor.id == factor_id)
+            .first()
+        )
 
-    def get_by_stock_and_date(self, stock_code: str, calculation_date: date) -> list[NewsSentimentFactor]:
+    def get_by_stock_and_date(
+        self, stock_code: str, calculation_date: date
+    ) -> list[NewsSentimentFactor]:
         """根据股票代码和计算日期获取新闻情绪因子数据"""
-        return self.db_session.query(NewsSentimentFactor).filter(
-            and_(
-                NewsSentimentFactor.stock_code == stock_code,
-                NewsSentimentFactor.calculation_date == calculation_date
+        return (
+            self.db_session.query(NewsSentimentFactor)
+            .filter(
+                and_(
+                    NewsSentimentFactor.stock_code == stock_code,
+                    NewsSentimentFactor.calculation_date == calculation_date,
+                )
             )
-        ).all()
+            .all()
+        )
 
     def update(self, factor_id: int, **kwargs: Any) -> bool:
         """更新新闻情绪因子数据"""
         try:
-            kwargs['updated_at'] = datetime.now()
-            update_data = {getattr(NewsSentimentFactor, k): v for k, v in kwargs.items() if hasattr(NewsSentimentFactor, k)}
-            result = self.db_session.query(NewsSentimentFactor).filter(
-                NewsSentimentFactor.id == factor_id
-            ).update(update_data)
+            kwargs["updated_at"] = datetime.now()
+            update_data = {
+                getattr(NewsSentimentFactor, k): v
+                for k, v in kwargs.items()
+                if hasattr(NewsSentimentFactor, k)
+            }
+            result = (
+                self.db_session.query(NewsSentimentFactor)
+                .filter(NewsSentimentFactor.id == factor_id)
+                .update(update_data)
+            )
 
             self.db_session.commit()
             return result > 0
@@ -373,9 +510,11 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
     def delete(self, factor_id: int) -> bool:
         """删除新闻情绪因子数据"""
         try:
-            result = self.db_session.query(NewsSentimentFactor).filter(
-                NewsSentimentFactor.id == factor_id
-            ).delete()
+            result = (
+                self.db_session.query(NewsSentimentFactor)
+                .filter(NewsSentimentFactor.id == factor_id)
+                .delete()
+            )
 
             self.db_session.commit()
             return result > 0
@@ -383,11 +522,17 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
             self.db_session.rollback()
             raise e
 
-    def get_latest_by_stock(self, stock_code: str, limit: int = 10) -> list[NewsSentimentFactor]:
+    def get_latest_by_stock(
+        self, stock_code: str, limit: int = 10
+    ) -> list[NewsSentimentFactor]:
         """获取股票最新的新闻情绪因子数据"""
-        return self.db_session.query(NewsSentimentFactor).filter(
-            NewsSentimentFactor.stock_code == stock_code
-        ).order_by(desc(NewsSentimentFactor.calculation_date)).limit(limit).all()
+        return (
+            self.db_session.query(NewsSentimentFactor)
+            .filter(NewsSentimentFactor.stock_code == stock_code)
+            .order_by(desc(NewsSentimentFactor.calculation_date))
+            .limit(limit)
+            .all()
+        )
 
 
 class FactorDAOFactory:
@@ -397,10 +542,10 @@ class FactorDAOFactory:
     def create_dao(factor_type: str, db_session: Session) -> Any:
         """根据因子类型创建对应的DAO实例"""
         dao_mapping = {
-            'technical': TechnicalFactorDAO,
-            'fundamental': FundamentalFactorDAO,
-            'market': MarketFactorDAO,
-            'news_sentiment': NewsSentimentFactorDAO
+            "technical": TechnicalFactorDAO,
+            "fundamental": FundamentalFactorDAO,
+            "market": MarketFactorDAO,
+            "news_sentiment": NewsSentimentFactorDAO,
         }
 
         dao_class = dao_mapping.get(factor_type)

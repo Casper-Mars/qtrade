@@ -1,9 +1,9 @@
-"""技术因子API接口模块
+"""基本面因子API接口模块
 
-提供技术因子计算的RESTful API接口，包括：
-- 计算单个技术因子
-- 查询技术因子历史数据
-- 批量计算技术因子
+提供基本面因子计算的RESTful API接口，包括：
+- 计算单个基本面因子
+- 查询基本面因子历史数据
+- 批量计算基本面因子
 """
 
 import logging
@@ -19,20 +19,19 @@ from ....config.database import get_db_session
 from ....config.redis import get_redis_client
 from ...dao.factor_dao import FactorDAO
 from ...models.schemas import (
-    BatchTechnicalFactorRequest,
-    BatchTechnicalFactorResponse,
-    TechnicalFactorHistoryResponse,
-    TechnicalFactorRequest,
-    TechnicalFactorResponse,
+    BatchFundamentalFactorRequest,
+    BatchFundamentalFactorResponse,
+    FundamentalFactorRequest,
+    FundamentalFactorResponse,
 )
 from ...services.factor_service import FactorService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/technical", tags=["technical-factors"])
+router = APIRouter(prefix="/fundamental", tags=["fundamental-factors"])
 
 
-def get_factor_service(
+async def get_factor_service(
     db_session: Session = Depends(get_db_session),
     redis_client: Redis = Depends(get_redis_client),
 ) -> FactorService:
@@ -42,83 +41,84 @@ def get_factor_service(
     return FactorService(factor_dao, data_client)
 
 
-@router.post("/calculate", response_model=TechnicalFactorResponse)
-async def calculate_technical_factors(
-    request: TechnicalFactorRequest,
+@router.post("/calculate", response_model=FundamentalFactorResponse)
+async def calculate_fundamental_factors(
+    request: FundamentalFactorRequest,
     factor_service: FactorService = Depends(get_factor_service),
-) -> TechnicalFactorResponse:
+) -> FundamentalFactorResponse:
     """
-    计算技术因子
+    计算基本面因子
 
     Args:
-        request: 技术因子计算请求
+        request: 基本面因子计算请求
         factor_service: 因子服务实例
 
     Returns:
-        技术因子计算结果
+        基本面因子计算结果
 
     Raises:
         HTTPException: 当计算失败时抛出异常
     """
     try:
         logger.info(
-            f"开始计算技术因子: stock_code={request.stock_code}, factors={request.factors}"
+            f"开始计算基本面因子: stock_code={request.stock_code}, period={request.period}"
         )
-        # 调用因子服务计算技术因子
-        result = await factor_service.calculate_technical_factors(request)
 
-        logger.info(f"技术因子计算完成: stock_code={request.stock_code}")
+        # 调用因子服务计算基本面因子
+        result = await factor_service.calculate_fundamental_factors(request)
+
+        logger.info(f"基本面因子计算完成: stock_code={request.stock_code}")
         return result
 
     except DataNotFoundError as e:
         logger.error(f"数据未找到: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e)) from e
     except FactorCalculationException as e:
-        logger.error(f"技术因子计算失败: {str(e)}")
+        logger.error(f"基本面因子计算失败: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        logger.error(f"技术因子计算异常: {str(e)}")
+        logger.error(f"基本面因子计算异常: {str(e)}")
         raise HTTPException(status_code=500, detail="内部服务器错误") from e
 
 
-@router.get("/history", response_model=TechnicalFactorHistoryResponse)
-async def get_technical_factor_history(
+@router.get("/history")
+async def get_fundamental_factor_history(
     stock_code: str = Query(..., description="股票代码"),
     factor_name: str = Query(..., description="因子名称"),
-    start_date: str = Query(..., description="开始日期，格式：YYYY-MM-DD"),
-    end_date: str = Query(..., description="结束日期，格式：YYYY-MM-DD"),
+    start_period: str = Query(..., description="开始期间，格式：YYYY-Q[1-4] 或 YYYY"),
+    end_period: str = Query(..., description="结束期间，格式：YYYY-Q[1-4] 或 YYYY"),
     factor_service: FactorService = Depends(get_factor_service),
-) -> TechnicalFactorHistoryResponse:
+) -> list[dict]:
     """
-    查询技术因子历史数据
+    查询基本面因子历史数据
 
     Args:
         stock_code: 股票代码
         factor_name: 因子名称
-        start_date: 开始日期
-        end_date: 结束日期
+        start_period: 开始期间
+        end_period: 结束期间
         factor_service: 因子服务实例
 
     Returns:
-        技术因子历史数据
+        基本面因子历史数据
 
     Raises:
         HTTPException: 当查询失败时抛出异常
     """
     try:
         logger.info(
-            f"查询技术因子历史数据: stock_code={stock_code}, factor={factor_name}"
+            f"查询基本面因子历史数据: stock_code={stock_code}, factor={factor_name}"
         )
 
-        result = await factor_service.get_technical_factor_history(
+        result = await factor_service.get_fundamental_factor_history(
             stock_code=stock_code,
             factor_name=factor_name,
-            start_date=start_date,
-            end_date=end_date,
+            start_period=start_period,
+            end_period=end_period,
         )
 
         logger.info(
-            f"技术因子历史数据查询完成: stock_code={stock_code}, 记录数={len(result.data)}"
+            f"基本面因子历史数据查询完成: stock_code={stock_code}, 记录数={len(result)}"
         )
         return result
 
@@ -126,41 +126,42 @@ async def get_technical_factor_history(
         logger.error(f"历史数据未找到: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        logger.error(f"技术因子历史数据查询异常: {str(e)}")
+        logger.error(f"基本面因子历史数据查询异常: {str(e)}")
         raise HTTPException(status_code=500, detail="内部服务器错误") from e
 
 
-@router.post("/batch-calculate", response_model=BatchTechnicalFactorResponse)
-async def batch_calculate_technical_factors(
-    request: BatchTechnicalFactorRequest,
+@router.post("/batch-calculate", response_model=BatchFundamentalFactorResponse)
+async def batch_calculate_fundamental_factors(
+    request: BatchFundamentalFactorRequest,
     factor_service: FactorService = Depends(get_factor_service),
-) -> BatchTechnicalFactorResponse:
+) -> BatchFundamentalFactorResponse:
     """
-    批量计算技术因子
+    批量计算基本面因子
 
     Args:
-        request: 批量技术因子计算请求
+        request: 批量基本面因子计算请求
         factor_service: 因子服务实例
 
     Returns:
-        批量技术因子计算结果
+        批量基本面因子计算结果
 
     Raises:
         HTTPException: 当计算失败时抛出异常
     """
     try:
         logger.info(
-            f"开始批量计算技术因子: stock_codes={len(request.stock_codes)}, factors={request.factors}"
+            f"开始批量计算基本面因子: stock_codes={len(request.stock_codes)}, period={request.period}"
         )
-        # 调用因子服务批量计算技术因子
-        result = await factor_service.batch_calculate_technical_factors(request)
 
-        logger.info(f"批量技术因子计算完成: 处理股票数={len(request.stock_codes)}")
+        # 调用因子服务批量计算基本面因子
+        result = await factor_service.batch_calculate_fundamental_factors(request)
+
+        logger.info(f"批量基本面因子计算完成: 处理股票数={len(request.stock_codes)}")
         return result
 
     except FactorCalculationException as e:
         logger.error(f"批量因子计算失败: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        logger.error(f"批量技术因子计算异常: {str(e)}")
+        logger.error(f"批量基本面因子计算异常: {str(e)}")
         raise HTTPException(status_code=500, detail="内部服务器错误") from e

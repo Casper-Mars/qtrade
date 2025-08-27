@@ -1,6 +1,5 @@
 """全局配置管理模块"""
 
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,10 +8,7 @@ class Settings(BaseSettings):
     """应用配置类"""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
     # 应用基础配置
@@ -40,8 +36,7 @@ class Settings(BaseSettings):
 
     # data-collector服务配置
     data_collector_base_url: str = Field(
-        default="http://localhost:8001",
-        description="data-collector服务基础URL"
+        default="http://localhost:8001", description="data-collector服务基础URL"
     )
     data_collector_timeout: int = Field(default=30, description="请求超时时间（秒）")
 
@@ -54,13 +49,9 @@ class Settings(BaseSettings):
 
     # NLP模型配置
     finbert_model_name: str = Field(
-        default="ProsusAI/finbert",
-        description="FinBERT模型名称"
+        default="ProsusAI/finbert", description="FinBERT模型名称"
     )
-    model_cache_dir: str | None = Field(
-        default="./models",
-        description="模型缓存目录"
-    )
+    model_cache_dir: str | None = Field(default="./models", description="模型缓存目录")
 
     @property
     def mysql_url(self) -> str:

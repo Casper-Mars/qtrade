@@ -28,7 +28,7 @@ def setup_logger(log_file: str | None = None, log_level: str = "INFO") -> None:
         level=log_level,
         colorize=True,
         backtrace=True,
-        diagnose=True
+        diagnose=True,
     )
 
     # 文件日志
@@ -46,7 +46,7 @@ def setup_logger(log_file: str | None = None, log_level: str = "INFO") -> None:
             compression="zip",
             backtrace=True,
             diagnose=True,
-            encoding="utf-8"
+            encoding="utf-8",
         )
 
         # 错误日志文件
@@ -60,7 +60,7 @@ def setup_logger(log_file: str | None = None, log_level: str = "INFO") -> None:
             compression="zip",
             backtrace=True,
             diagnose=True,
-            encoding="utf-8"
+            encoding="utf-8",
         )
 
     logger.info(f"日志系统初始化完成，级别: {log_level}")
@@ -70,10 +70,7 @@ def setup_logger(log_file: str | None = None, log_level: str = "INFO") -> None:
 
 def init_logger() -> None:
     """初始化日志系统"""
-    setup_logger(
-        log_file=settings.log_file,
-        log_level=settings.log_level
-    )
+    setup_logger(log_file=settings.log_file, log_level=settings.log_level)
 
 
 # 导出logger实例

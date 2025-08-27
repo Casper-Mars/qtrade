@@ -17,33 +17,36 @@ class BaseFactorModel(BaseModel):
         json_encoders = {
             Decimal: float,
             date: lambda v: v.isoformat(),
-            datetime: lambda v: v.isoformat()
+            datetime: lambda v: v.isoformat(),
         }
 
 
 # ==================== 技术因子相关模型 ====================
+
 
 class TechnicalFactorRequest(BaseFactorModel):
     """技术因子计算请求模型"""
 
     stock_code: str = Field(..., description="股票代码")
     factors: list[str] = Field(..., description="因子列表")
-    end_date: str | None = Field(default=None, description="计算截止日期，格式：YYYY-MM-DD")
+    end_date: str | None = Field(
+        default=None, description="计算截止日期，格式：YYYY-MM-DD"
+    )
     period: int | None = Field(default=20, description="计算周期")
 
-    @validator('stock_code')
+    @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith('SH') or v.startswith('SZ')):
-            raise ValueError('股票代码格式不正确')
+        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+            raise ValueError("股票代码格式不正确")
         return v
 
-    @validator('end_date')
+    @validator("end_date")
     def validate_end_date(cls, v: str | None) -> str | None:
         if v is not None:
             try:
-                datetime.strptime(v, '%Y-%m-%d')
+                datetime.strptime(v, "%Y-%m-%d")
             except ValueError as e:
-                raise ValueError('日期格式不正确，应为YYYY-MM-DD') from e
+                raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
         return v
 
 
@@ -70,22 +73,26 @@ class BatchTechnicalFactorRequest(BaseFactorModel):
 
     stock_codes: list[str] = Field(..., description="股票代码列表")
     factors: list[str] = Field(..., description="因子列表")
-    end_date: str | None = Field(default=None, description="计算截止日期，格式：YYYY-MM-DD")
+    end_date: str | None = Field(
+        default=None, description="计算截止日期，格式：YYYY-MM-DD"
+    )
 
-    @validator('stock_codes')
+    @validator("stock_codes")
     def validate_stock_codes(cls, v: list[str]) -> list[str]:
         for code in v:
-            if not code.isdigit() and not (code.startswith('SH') or code.startswith('SZ')):
-                raise ValueError(f'股票代码{code}格式不正确')
+            if not code.isdigit() and not (
+                code.startswith("SH") or code.startswith("SZ")
+            ):
+                raise ValueError(f"股票代码{code}格式不正确")
         return v
 
-    @validator('end_date')
+    @validator("end_date")
     def validate_end_date(cls, v: str | None) -> str | None:
         if v is not None:
             try:
-                datetime.strptime(v, '%Y-%m-%d')
+                datetime.strptime(v, "%Y-%m-%d")
             except ValueError as e:
-                raise ValueError('日期格式不正确，应为YYYY-MM-DD') from e
+                raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
         return v
 
 
@@ -114,32 +121,35 @@ class TechnicalFactor(BaseFactorModel):
 
 # ==================== 基本面因子相关模型 ====================
 
+
 class FundamentalFactorRequest(BaseFactorModel):
     """基本面因子计算请求模型"""
 
     stock_code: str = Field(..., description="股票代码")
     factors: list[str] = Field(..., description="因子列表")
     period: str = Field(..., description="报告期，格式：2023Q4或2023")
-    report_type: str = Field(default="quarterly", description="报告类型：quarterly或annual")
+    report_type: str = Field(
+        default="quarterly", description="报告类型：quarterly或annual"
+    )
 
-    @validator('stock_code')
+    @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith('SH') or v.startswith('SZ')):
-            raise ValueError('股票代码格式不正确')
+        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+            raise ValueError("股票代码格式不正确")
         return v
 
-    @validator('period')
+    @validator("period")
     def validate_period(cls, v: str) -> str:
         # 验证季度格式：2023Q1, 2023Q2, 2023Q3, 2023Q4
         # 或年度格式：2023
-        if not (v.endswith(('Q1', 'Q2', 'Q3', 'Q4')) or v.isdigit()):
-            raise ValueError('报告期格式不正确，应为YYYYQX或YYYY')
+        if not (v.endswith(("Q1", "Q2", "Q3", "Q4")) or v.isdigit()):
+            raise ValueError("报告期格式不正确，应为YYYYQX或YYYY")
         return v
 
-    @validator('report_type')
+    @validator("report_type")
     def validate_report_type(cls, v: str) -> str:
-        if v not in ['quarterly', 'annual']:
-            raise ValueError('报告类型必须是quarterly或annual')
+        if v not in ["quarterly", "annual"]:
+            raise ValueError("报告类型必须是quarterly或annual")
         return v
 
 
@@ -151,6 +161,53 @@ class FundamentalFactorResponse(BaseFactorModel):
     report_type: str
     factors: dict[str, float]
     growth_rates: dict[str, float] | None = None
+
+
+class BatchFundamentalFactorRequest(BaseFactorModel):
+    """批量基本面因子计算请求模型"""
+
+    stock_codes: list[str] = Field(..., description="股票代码列表")
+    factors: list[str] = Field(..., description="因子列表")
+    period: str = Field(..., description="报告期，格式：2023Q4或2023")
+    report_type: str = Field(
+        default="quarterly", description="报告类型：quarterly或annual"
+    )
+
+    @validator("stock_codes")
+    def validate_stock_codes(cls, v: list[str]) -> list[str]:
+        for code in v:
+            if not code.isdigit() and not (
+                code.startswith("SH") or code.startswith("SZ")
+            ):
+                raise ValueError(f"股票代码{code}格式不正确")
+        return v
+
+    @validator("period")
+    def validate_period(cls, v: str) -> str:
+        # 验证季度格式：2023Q1, 2023Q2, 2023Q3, 2023Q4
+        # 或年度格式：2023
+        if not (v.endswith(("Q1", "Q2", "Q3", "Q4")) or v.isdigit()):
+            raise ValueError("报告期格式不正确，应为YYYYQX或YYYY")
+        return v
+
+    @validator("report_type")
+    def validate_report_type(cls, v: str) -> str:
+        if v not in ["quarterly", "annual"]:
+            raise ValueError("报告类型必须是quarterly或annual")
+        return v
+
+
+class BatchFundamentalFactorResponse(BaseFactorModel):
+    """批量基本面因子计算响应模型"""
+
+    period: str
+    report_type: str
+    total_stocks: int
+    successful_stocks: int
+    failed_stocks: int
+    results: dict[str, dict[str, float]]
+    growth_rates: dict[str, dict[str, float]] | None = None
+    errors: dict[str, str] | None = None
 
 
 class FundamentalFactor(BaseFactorModel):
@@ -168,26 +225,29 @@ class FundamentalFactor(BaseFactorModel):
 
 # ==================== 市场因子相关模型 ====================
 
+
 class MarketFactorRequest(BaseFactorModel):
     """市场因子计算请求模型"""
 
     stock_code: str = Field(..., description="股票代码")
     factors: list[str] = Field(..., description="因子列表")
-    trade_date: str | None = Field(default=None, description="交易日期，格式：YYYY-MM-DD")
+    trade_date: str | None = Field(
+        default=None, description="交易日期，格式：YYYY-MM-DD"
+    )
 
-    @validator('stock_code')
+    @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith('SH') or v.startswith('SZ')):
-            raise ValueError('股票代码格式不正确')
+        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+            raise ValueError("股票代码格式不正确")
         return v
 
-    @validator('trade_date')
+    @validator("trade_date")
     def validate_trade_date(cls, v: str | None) -> str | None:
         if v is not None:
             try:
-                datetime.strptime(v, '%Y-%m-%d')
+                datetime.strptime(v, "%Y-%m-%d")
             except ValueError as e:
-                raise ValueError('日期格式不正确，应为YYYY-MM-DD') from e
+                raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
         return v
 
 
@@ -213,29 +273,29 @@ class MarketFactor(BaseFactorModel):
 
 # ==================== 新闻情绪因子相关模型 ====================
 
+
 class SentimentFactorRequest(BaseFactorModel):
     """新闻情绪因子计算请求模型"""
 
     stock_code: str = Field(..., description="股票代码", min_length=6, max_length=10)
     date: str = Field(..., description="计算日期，格式：YYYY-MM-DD")
     sources: list[str] = Field(
-        ["news", "announcements", "policies"],
-        description="数据源列表"
+        ["news", "announcements", "policies"], description="数据源列表"
     )
     time_window: int = Field(default=7, description="时间窗口（天）")
 
-    @validator('stock_code')
+    @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith('SH') or v.startswith('SZ')):
-            raise ValueError('股票代码格式不正确')
+        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+            raise ValueError("股票代码格式不正确")
         return v
 
-    @validator('date')
+    @validator("date")
     def validate_date(cls, v: str) -> str:
         try:
-            datetime.strptime(v, '%Y-%m-%d')
+            datetime.strptime(v, "%Y-%m-%d")
         except ValueError as e:
-            raise ValueError('日期格式不正确，应为YYYY-MM-DD') from e
+            raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
         return v
 
 
@@ -263,37 +323,40 @@ class NewsSentimentFactor(BaseFactorModel):
 
 # ==================== 批量操作相关模型 ====================
 
+
 class BatchCalculateRequest(BaseFactorModel):
     """批量因子计算请求模型"""
 
     stock_codes: list[str] = Field(..., description="股票代码列表")
     factor_types: list[str] = Field(
         ["technical", "fundamental", "market", "news_sentiment"],
-        description="因子类型列表"
+        description="因子类型列表",
     )
     calculation_date: str = Field(..., description="计算日期，格式：YYYY-MM-DD")
 
-    @validator('stock_codes')
+    @validator("stock_codes")
     def validate_stock_codes(cls, v: list[str]) -> list[str]:
         for code in v:
-            if not code.isdigit() and not (code.startswith('SH') or code.startswith('SZ')):
-                raise ValueError(f'股票代码{code}格式不正确')
+            if not code.isdigit() and not (
+                code.startswith("SH") or code.startswith("SZ")
+            ):
+                raise ValueError(f"股票代码{code}格式不正确")
         return v
 
-    @validator('factor_types')
+    @validator("factor_types")
     def validate_factor_types(cls, v: list[str]) -> list[str]:
         valid_types = {"technical", "fundamental", "market", "news_sentiment"}
         for factor_type in v:
             if factor_type not in valid_types:
-                raise ValueError(f'不支持的因子类型：{factor_type}')
+                raise ValueError(f"不支持的因子类型：{factor_type}")
         return v
 
-    @validator('calculation_date')
+    @validator("calculation_date")
     def validate_calculation_date(cls, v: str) -> str:
         try:
-            datetime.strptime(v, '%Y-%m-%d')
+            datetime.strptime(v, "%Y-%m-%d")
         except ValueError as e:
-            raise ValueError('日期格式不正确，应为YYYY-MM-DD') from e
+            raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
         return v
 
 
@@ -310,13 +373,18 @@ class BatchCalculateResponse(BaseFactorModel):
 
 # ==================== 通用响应模型 ====================
 
+
 class ApiResponse(BaseFactorModel):
     """API通用响应模型"""
 
     code: int = Field(default=200, description="响应状态码")
     message: str = Field(default="success", description="响应消息")
-    data: dict | list | str | int | float | None = Field(default=None, description="响应数据")
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="响应时间戳")
+    data: dict | list | str | int | float | None = Field(
+        default=None, description="响应数据"
+    )
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now().isoformat(), description="响应时间戳"
+    )
 
 
 class ErrorResponse(BaseFactorModel):
@@ -325,4 +393,6 @@ class ErrorResponse(BaseFactorModel):
     code: int = Field(..., description="错误状态码")
     message: str = Field(..., description="错误消息")
     detail: str | None = Field(default=None, description="错误详情")
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="错误时间戳")
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now().isoformat(), description="错误时间戳"
+    )

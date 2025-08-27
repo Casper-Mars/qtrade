@@ -15,7 +15,7 @@ class QuantEngineException(Exception):
         self,
         message: str,
         error_code: str = "QUANT_ENGINE_ERROR",
-        details: dict[str, Any] | None = None
+        details: dict[str, Any] | None = None,
     ):
         self.message = message
         self.error_code = error_code
@@ -28,9 +28,7 @@ class DataCollectorException(QuantEngineException):
 
     def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
-            message=message,
-            error_code="DATA_COLLECTOR_ERROR",
-            details=details
+            message=message, error_code="DATA_COLLECTOR_ERROR", details=details
         )
 
 
@@ -38,22 +36,14 @@ class DatabaseException(QuantEngineException):
     """数据库操作异常"""
 
     def __init__(self, message: str, details: dict[str, Any] | None = None):
-        super().__init__(
-            message=message,
-            error_code="DATABASE_ERROR",
-            details=details
-        )
+        super().__init__(message=message, error_code="DATABASE_ERROR", details=details)
 
 
 class RedisException(QuantEngineException):
     """Redis操作异常"""
 
     def __init__(self, message: str, details: dict[str, Any] | None = None):
-        super().__init__(
-            message=message,
-            error_code="REDIS_ERROR",
-            details=details
-        )
+        super().__init__(message=message, error_code="REDIS_ERROR", details=details)
 
 
 class FactorCalculationException(QuantEngineException):
@@ -61,9 +51,7 @@ class FactorCalculationException(QuantEngineException):
 
     def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
-            message=message,
-            error_code="FACTOR_CALCULATION_ERROR",
-            details=details
+            message=message, error_code="FACTOR_CALCULATION_ERROR", details=details
         )
 
 
@@ -71,11 +59,7 @@ class NLPException(QuantEngineException):
     """NLP处理异常"""
 
     def __init__(self, message: str, details: dict[str, Any] | None = None):
-        super().__init__(
-            message=message,
-            error_code="NLP_ERROR",
-            details=details
-        )
+        super().__init__(message=message, error_code="NLP_ERROR", details=details)
 
 
 class ValidationException(QuantEngineException):
@@ -83,9 +67,7 @@ class ValidationException(QuantEngineException):
 
     def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
-            message=message,
-            error_code="VALIDATION_ERROR",
-            details=details
+            message=message, error_code="VALIDATION_ERROR", details=details
         )
 
 
@@ -94,9 +76,7 @@ class ConfigurationException(QuantEngineException):
 
     def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
-            message=message,
-            error_code="CONFIGURATION_ERROR",
-            details=details
+            message=message, error_code="CONFIGURATION_ERROR", details=details
         )
 
 
@@ -105,13 +85,13 @@ class DataNotFoundError(QuantEngineException):
 
     def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
-            message=message,
-            error_code="DATA_NOT_FOUND_ERROR",
-            details=details
+            message=message, error_code="DATA_NOT_FOUND_ERROR", details=details
         )
 
 
-async def quant_engine_exception_handler(request: Request, exc: QuantEngineException) -> JSONResponse:
+async def quant_engine_exception_handler(
+    request: Request, exc: QuantEngineException
+) -> JSONResponse:
     """量化引擎异常处理器"""
     logger.error(
         f"QuantEngineException: {exc.error_code} - {exc.message}",
@@ -119,8 +99,8 @@ async def quant_engine_exception_handler(request: Request, exc: QuantEngineExcep
             "error_code": exc.error_code,
             "details": exc.details,
             "path": request.url.path,
-            "method": request.method
-        }
+            "method": request.method,
+        },
     )
 
     return JSONResponse(
@@ -130,8 +110,8 @@ async def quant_engine_exception_handler(request: Request, exc: QuantEngineExcep
             "error_code": exc.error_code,
             "message": exc.message,
             "details": exc.details,
-            "path": request.url.path
-        }
+            "path": request.url.path,
+        },
     )
 
 
@@ -142,8 +122,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         extra={
             "status_code": exc.status_code,
             "path": request.url.path,
-            "method": request.method
-        }
+            "method": request.method,
+        },
     )
 
     return JSONResponse(
@@ -153,8 +133,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
             "error_code": "HTTP_ERROR",
             "message": exc.detail,
             "status_code": exc.status_code,
-            "path": request.url.path
-        }
+            "path": request.url.path,
+        },
     )
 
 
@@ -169,8 +149,8 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
             "exception_type": type(exc).__name__,
             "path": request.url.path,
             "method": request.method,
-            "traceback": traceback.format_exc()
-        }
+            "traceback": traceback.format_exc(),
+        },
     )
 
     return JSONResponse(
@@ -180,8 +160,8 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
             "error_code": "INTERNAL_SERVER_ERROR",
             "message": "服务器内部错误",
             "error_id": error_id,
-            "path": request.url.path
-        }
+            "path": request.url.path,
+        },
     )
 
 

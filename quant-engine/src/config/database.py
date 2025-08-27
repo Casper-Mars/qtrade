@@ -20,7 +20,7 @@ sync_engine = create_engine(
     pool_recycle=3600,
     pool_size=10,
     max_overflow=20,
-    echo=settings.debug
+    echo=settings.debug,
 )
 
 # 异步数据库引擎
@@ -31,22 +31,18 @@ async_engine = create_async_engine(
     pool_recycle=3600,
     pool_size=10,
     max_overflow=20,
-    echo=settings.debug
+    echo=settings.debug,
 )
 
 # 会话工厂
-SessionLocal = sessionmaker(
-    bind=sync_engine,
-    autocommit=False,
-    autoflush=False
-)
+SessionLocal = sessionmaker(bind=sync_engine, autocommit=False, autoflush=False)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=async_engine,
     class_=AsyncSession,
     autocommit=False,
     autoflush=False,
-    expire_on_commit=False
+    expire_on_commit=False,
 )
 
 logger.info("数据库基础配置初始化完成")

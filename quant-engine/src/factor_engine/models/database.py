@@ -3,7 +3,6 @@
 本模块定义了因子计算引擎的数据库模型，包括技术因子、基本面因子、市场因子和情绪因子的数据表结构。
 """
 
-
 from typing import Any
 
 from sqlalchemy import (
@@ -41,22 +40,24 @@ class TechnicalFactor(Base):
         DateTime,
         nullable=False,
         server_default=func.current_timestamp(),
-        comment="创建时间"
+        comment="创建时间",
     )
 
     updated_at = Column(
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
-        comment="更新时间"
+        comment="更新时间",
     )
 
     # 索引定义
     __table_args__ = (
         Index("idx_stock_factor_date", "stock_code", "factor_name", "trade_date"),
         Index("idx_trade_date", "trade_date"),
-        UniqueConstraint("stock_code", "factor_name", "trade_date", name="uk_stock_factor_date"),
-        {"comment": "技术因子表"}
+        UniqueConstraint(
+            "stock_code", "factor_name", "trade_date", name="uk_stock_factor_date"
+        ),
+        {"comment": "技术因子表"},
     )
 
 
@@ -78,21 +79,23 @@ class FundamentalFactor(Base):
         DateTime,
         nullable=False,
         server_default=func.current_timestamp(),
-        comment="创建时间"
+        comment="创建时间",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
-        comment="更新时间"
+        comment="更新时间",
     )
 
     # 索引定义
     __table_args__ = (
         Index("idx_stock_factor_period", "stock_code", "factor_name", "report_period"),
         Index("idx_ann_date", "ann_date"),
-        UniqueConstraint("stock_code", "factor_name", "report_period", name="uk_stock_factor_period"),
-        {"comment": "基本面因子表"}
+        UniqueConstraint(
+            "stock_code", "factor_name", "report_period", name="uk_stock_factor_period"
+        ),
+        {"comment": "基本面因子表"},
     )
 
 
@@ -113,21 +116,23 @@ class MarketFactor(Base):
         DateTime,
         nullable=False,
         server_default=func.current_timestamp(),
-        comment="创建时间"
+        comment="创建时间",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
-        comment="更新时间"
+        comment="更新时间",
     )
 
     # 索引定义
     __table_args__ = (
         Index("idx_stock_factor_date", "stock_code", "factor_name", "trade_date"),
         Index("idx_trade_date", "trade_date"),
-        UniqueConstraint("stock_code", "factor_name", "trade_date", name="uk_stock_factor_date"),
-        {"comment": "市场因子表"}
+        UniqueConstraint(
+            "stock_code", "factor_name", "trade_date", name="uk_stock_factor_date"
+        ),
+        {"comment": "市场因子表"},
     )
 
 
@@ -143,18 +148,20 @@ class NewsSentimentFactor(Base):
     stock_code = Column(String(10), nullable=False, comment="股票代码")
     factor_value: Any = Column(DECIMAL(10, 6), nullable=False, comment="情绪因子值")
     calculation_date = Column(Date, nullable=False, comment="计算日期")
-    news_count = Column(Integer, nullable=False, default=0, comment="参与计算的新闻数量")
+    news_count = Column(
+        Integer, nullable=False, default=0, comment="参与计算的新闻数量"
+    )
     created_at = Column(
         DateTime,
         nullable=False,
         server_default=func.current_timestamp(),
-        comment="创建时间"
+        comment="创建时间",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
-        comment="更新时间"
+        comment="更新时间",
     )
 
     # 索引定义
@@ -162,5 +169,5 @@ class NewsSentimentFactor(Base):
         Index("idx_stock_date", "stock_code", "calculation_date"),
         Index("idx_calculation_date", "calculation_date"),
         UniqueConstraint("stock_code", "calculation_date", name="uk_stock_date"),
-        {"comment": "新闻情绪因子表"}
+        {"comment": "新闻情绪因子表"},
     )

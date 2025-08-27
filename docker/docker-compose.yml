@@ -1,0 +1,71 @@
+services:
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: qtrade-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: qtrade123
+      MYSQL_DATABASE: qtrade
+      MYSQL_USER: qtrade
+      MYSQL_PASSWORD: qtrade123
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
+    networks:
+      - qtrade-network
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: qtrade-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - qtrade-network
+
+  # MongoDB文档数据库
+  mongodb:
+    image: mongo:7
+    container_name: qtrade-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: qtrade
+      MONGO_INITDB_ROOT_PASSWORD: qtrade123
+      MONGO_INITDB_DATABASE: qtrade
+      TZ: Asia/Shanghai
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb/init:/docker-entrypoint-initdb.d
+    networks:
+      - qtrade-network
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+
+networks:
+  qtrade-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

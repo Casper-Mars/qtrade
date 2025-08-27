@@ -1,0 +1,1031 @@
+basePath: /api/v1
+definitions:
+  handler.APIResponse:
+    properties:
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  handler.CollectStockBasicRequest:
+    properties:
+      mode:
+        description: '采集模式: "all", "incremental", "symbol"'
+        type: string
+      since:
+        description: 起始时间（当mode为incremental时使用，格式：2006-01-02）
+        type: string
+      symbol:
+        description: 股票代码（当mode为symbol时使用）
+        type: string
+    type: object
+  handler.NewsListResponse:
+    properties:
+      limit:
+        description: 每页数量
+        type: integer
+      list:
+        description: 新闻列表
+        items:
+          $ref: '#/definitions/models.News'
+        type: array
+      offset:
+        description: 偏移量
+        type: integer
+      total:
+        description: 总数
+        type: integer
+    type: object
+  handler.PolicyListResponse:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      policies:
+        items:
+          $ref: '#/definitions/models.Policy'
+        type: array
+      total:
+        type: integer
+    type: object
+  handler.Response:
+    properties:
+      code:
+        description: 响应码
+        type: integer
+      data:
+        description: 响应数据
+      error:
+        description: 错误信息
+        type: string
+      message:
+        description: 响应消息
+        type: string
+    type: object
+  models.News:
+    properties:
+      content:
+        description: 快讯内容
+        type: string
+      created_at:
+        description: 创建时间
+        type: string
+      id:
+        type: string
+      publish_time:
+        description: 发布时间
+        type: string
+      related_industries:
+        description: 关联行业
+        items:
+          type: string
+        type: array
+      related_stocks:
+        description: 关联股票
+        items:
+          $ref: '#/definitions/models.RelatedStock'
+        type: array
+      source:
+        description: 来源（如：财联社）
+        type: string
+      title:
+        description: 快讯标题
+        type: string
+      updated_at:
+        description: 更新时间
+        type: string
+      url:
+        description: 原文链接
+        type: string
+    type: object
+  models.Policy:
+    properties:
+      content:
+        description: 政策内容
+        type: string
+      created_at:
+        description: 创建时间
+        type: string
+      effective_time:
+        description: 生效时间（可选）
+        type: string
+      id:
+        type: string
+      impact_level:
+        description: 影响级别：high|medium|low
+        type: string
+      keywords:
+        description: 关键词
+        items:
+          type: string
+        type: array
+      policy_type:
+        description: 政策类型：货币政策|监管政策|交易规则
+        type: string
+      publish_time:
+        description: 发布时间
+        type: string
+      source:
+        description: 发布机构
+        type: string
+      title:
+        description: 政策标题
+        type: string
+      updated_at:
+        description: 更新时间
+        type: string
+      url:
+        description: 原文链接
+        type: string
+    type: object
+  models.RelatedStock:
+    properties:
+      code:
+        description: 股票代码
+        type: string
+      name:
+        description: 股票名称
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 数据采集服务API文档，提供股票、财务、新闻和政策数据采集功能
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Data Collector API
+  version: "1.0"
+paths:
+  /api/v1/news:
+    get:
+      consumes:
+      - application/json
+      description: 根据条件获取新闻列表，支持分页
+      parameters:
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      - description: 新闻来源
+        in: query
+        name: source
+        type: string
+      - description: 关键词搜索
+        in: query
+        name: keyword
+        type: string
+      - description: 关联股票代码
+        in: query
+        name: stock_code
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.NewsListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取新闻列表
+      tags:
+      - 新闻管理
+  /api/v1/news/by-stock:
+    get:
+      consumes:
+      - application/json
+      description: 获取与指定股票相关的新闻列表
+      parameters:
+      - description: 股票代码
+        in: path
+        name: stock_code
+        required: true
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.NewsListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 根据股票代码获取相关新闻
+      tags:
+      - 新闻管理
+  /api/v1/news/detail:
+    get:
+      consumes:
+      - application/json
+      description: 根据新闻ID获取详细信息
+      parameters:
+      - description: 新闻ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.News'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取新闻详情
+      tags:
+      - 新闻管理
+  /api/v1/news/search:
+    get:
+      consumes:
+      - application/json
+      description: 根据关键词搜索新闻
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        required: true
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.NewsListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 搜索新闻
+      tags:
+      - 新闻管理
+  /api/v1/news/time-range:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定时间范围内的新闻列表
+      parameters:
+      - description: 开始时间
+        format: date-time
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: 结束时间
+        format: date-time
+        in: query
+        name: end_time
+        required: true
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.NewsListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 根据时间范围获取新闻
+      tags:
+      - 新闻管理
+  /api/v1/policies:
+    get:
+      consumes:
+      - application/json
+      description: 根据条件获取政策列表，支持分页
+      parameters:
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      - description: 发布机构
+        in: query
+        name: source
+        type: string
+      - description: 政策类型
+        in: query
+        name: policy_type
+        type: string
+      - description: 影响级别
+        in: query
+        name: impact_level
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.PolicyListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取政策列表
+      tags:
+      - 政策管理
+  /api/v1/policies/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据政策ID获取政策详细信息
+      parameters:
+      - description: 政策ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Policy'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 根据ID获取政策详情
+      tags:
+      - 政策管理
+  /api/v1/policies/search:
+    get:
+      consumes:
+      - application/json
+      description: 根据关键词搜索政策
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        required: true
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.PolicyListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 搜索政策
+      tags:
+      - 政策管理
+  /api/v1/policies/time-range:
+    get:
+      consumes:
+      - application/json
+      description: 根据发布时间范围获取政策列表
+      parameters:
+      - description: 开始时间
+        format: date-time
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: 结束时间
+        format: date-time
+        in: query
+        name: end_time
+        required: true
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.PolicyListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 根据时间范围获取政策
+      tags:
+      - 政策管理
+  /api/v1/policies/type/{policy_type}:
+    get:
+      consumes:
+      - application/json
+      description: 根据政策类型获取政策列表
+      parameters:
+      - description: 政策类型
+        in: path
+        name: policy_type
+        required: true
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handler.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.PolicyListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 根据政策类型获取政策
+      tags:
+      - 政策管理
+  /api/v1/stocks/quotes/by-date:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定日期所有股票的行情数据
+      parameters:
+      - description: 交易日期，格式：2006-01-02
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: 限制返回数量，默认100
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量，默认0
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取指定日期的行情数据
+      tags:
+      - 股票行情
+  /api/v1/stocks/quotes/by-symbol:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定股票在指定时间范围内的行情数据
+      parameters:
+      - description: 股票代码，如：000001
+        in: query
+        name: symbol
+        required: true
+        type: string
+      - description: 开始日期，格式：2006-01-02
+        in: query
+        name: start_date
+        type: string
+      - description: 结束日期，格式：2006-01-02
+        in: query
+        name: end_date
+        type: string
+      - description: 限制返回数量，默认100
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量，默认0
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取指定股票的行情数据
+      tags:
+      - 股票行情
+  /collect/stock/adj-factors:
+    post:
+      consumes:
+      - application/json
+      description: 采集指定日期的复权因子数据
+      parameters:
+      - description: 交易日期 (YYYY-MM-DD)
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: 股票代码列表，逗号分隔，为空则采集所有股票
+        in: query
+        name: symbols
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 采集成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 按日期采集复权因子数据
+      tags:
+      - 复权因子采集
+  /collect/stock/adj-factors/latest:
+    post:
+      consumes:
+      - application/json
+      description: 采集最新交易日的复权因子数据
+      parameters:
+      - description: 股票代码列表，逗号分隔，为空则采集所有股票
+        in: query
+        name: symbols
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 采集成功
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 采集最新复权因子数据
+      tags:
+      - 复权因子采集
+  /collect/stock/adj-factors/range:
+    post:
+      consumes:
+      - application/json
+      description: 采集指定日期范围的复权因子数据
+      parameters:
+      - description: 开始日期 (YYYY-MM-DD)
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: 结束日期 (YYYY-MM-DD)
+        in: query
+        name: end_date
+        required: true
+        type: string
+      - description: 股票代码列表，逗号分隔，为空则采集所有股票
+        in: query
+        name: symbols
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 采集成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 按日期范围采集复权因子数据
+      tags:
+      - 复权因子采集
+  /collect/stock/basic:
+    post:
+      consumes:
+      - application/json
+      description: 根据不同模式采集股票基础信息，支持全量采集、增量采集和单个股票采集
+      parameters:
+      - description: 采集请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CollectStockBasicRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 采集成功
+          schema:
+            $ref: '#/definitions/handler.APIResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/handler.APIResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/handler.APIResponse'
+      summary: 采集股票基础信息
+      tags:
+      - 股票数据采集
+  /collect/stock/quotes:
+    post:
+      consumes:
+      - application/json
+      description: 采集指定日期的股票行情数据，支持指定股票代码列表
+      parameters:
+      - description: 交易日期，格式：2006-01-02
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: 股票代码列表，用逗号分隔，如：000001.SZ,000002.SZ
+        in: query
+        name: symbols
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 采集成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 采集指定日期的股票行情数据
+      tags:
+      - 股票行情采集
+  /collect/stock/quotes/latest:
+    post:
+      consumes:
+      - application/json
+      description: 采集最新交易日的股票行情数据，支持指定股票代码列表
+      parameters:
+      - description: 股票代码列表，用逗号分隔，如：000001.SZ,000002.SZ
+        in: query
+        name: symbols
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 采集成功
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 采集最新的股票行情数据
+      tags:
+      - 股票行情采集
+  /collect/stock/quotes/range:
+    post:
+      consumes:
+      - application/json
+      description: 采集指定时间范围的股票行情数据，支持指定股票代码列表
+      parameters:
+      - description: 开始日期，格式：2006-01-02
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: 结束日期，格式：2006-01-02
+        in: query
+        name: end_date
+        required: true
+        type: string
+      - description: 股票代码列表，用逗号分隔，如：000001.SZ,000002.SZ
+        in: query
+        name: symbols
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 采集成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 采集指定时间范围的股票行情数据
+      tags:
+      - 股票行情采集
+  /stocks/adj-factors/by-date:
+    get:
+      consumes:
+      - application/json
+      description: 查询指定日期的所有股票复权因子数据
+      parameters:
+      - description: 交易日期 (YYYY-MM-DD)
+        in: path
+        name: date
+        required: true
+        type: string
+      - description: 返回数量限制，默认100
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量，默认0
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 查询指定日期的复权因子数据
+      tags:
+      - 复权因子查询
+  /stocks/adj-factors/by-symbol:
+    get:
+      consumes:
+      - application/json
+      description: 查询指定股票在指定时间范围内的复权因子数据
+      parameters:
+      - description: 股票代码
+        in: query
+        name: symbol
+        required: true
+        type: string
+      - description: 开始日期 (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: 结束日期 (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 查询指定股票的复权因子数据
+      tags:
+      - 复权因子查询
+schemes:
+- http
+- https
+swagger: "2.0"

@@ -1,0 +1,337 @@
+"""因子服务层模块
+
+提供统一的因子计算服务接口，包括：
+- 技术因子计算服务
+- 缓存策略管理
+- 数据持久化逻辑
+"""
+
+import logging
+from datetime import datetime, timedelta
+
+import pandas as pd
+
+from ..calculators.technical import TechnicalFactorCalculator
+from ..dao.factor_dao import FactorDAO
+from ..models.schemas import (
+    BatchTechnicalFactorRequest,
+    BatchTechnicalFactorResponse,
+    TechnicalFactorHistoryResponse,
+    TechnicalFactorRequest,
+    TechnicalFactorResponse,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class FactorService:
+    """因子服务类
+
+    提供统一的因子计算和管理服务
+    """
+
+    def __init__(self, factor_dao: FactorDAO):
+        """初始化因子服务
+
+        Args:
+            factor_dao: 因子数据访问对象
+        """
+        self.factor_dao = factor_dao
+        self.technical_calculator = TechnicalFactorCalculator()
+
+    async def calculate_technical_factors(
+        self,
+        request: TechnicalFactorRequest
+    ) -> TechnicalFactorResponse:
+        """计算技术因子
+
+        Args:
+            request: 技术因子计算请求
+
+        Returns:
+            技术因子计算响应
+        """
+        try:
+            # 获取股票价格数据
+            price_data = await self._get_price_data(
+                request.stock_code,
+                request.end_date,
+                request.period or 100
+            )
+
+            if price_data.empty:
+                raise ValueError(f"无法获取股票{request.stock_code}的价格数据")
+
+            # 验证价格数据格式
+            self.technical_calculator.validate_price_data(price_data)
+
+            # 计算技术因子
+            factors_result = self.technical_calculator.calculate_factors(
+                price_data=price_data,
+                factors=request.factors,
+                periods=getattr(request, 'periods', None)
+            )
+
+            # 保存计算结果到数据库
+            calculation_date = request.end_date or datetime.now().strftime('%Y-%m-%d')
+            await self._save_technical_factors(
+                request.stock_code,
+                calculation_date,
+                factors_result
+            )
+
+            # 构造响应
+            response = TechnicalFactorResponse(
+                stock_code=request.stock_code,
+                calculation_date=calculation_date,
+                factors=factors_result
+            )
+
+            logger.info(f"成功计算股票{request.stock_code}的技术因子: {list(factors_result.keys())}")
+            return response
+
+        except Exception as e:
+            logger.error(f"计算技术因子失败: {str(e)}")
+            raise
+
+    async def get_technical_factor_history(
+        self,
+        stock_code: str,
+        factor_name: str,
+        start_date: str,
+        end_date: str
+    ) -> TechnicalFactorHistoryResponse:
+        """获取技术因子历史数据
+
+        Args:
+            stock_code: 股票代码
+            factor_name: 因子名称
+            start_date: 开始日期
+            end_date: 结束日期
+
+        Returns:
+            技术因子历史数据响应
+        """
+        try:
+            # 从数据库查询历史数据
+            history_data = await self.factor_dao.get_factor_history(
+                stock_code=stock_code,
+                factor_name=factor_name,
+                start_date=start_date,
+                end_date=end_date
+            )
+
+            # 构造响应数据
+            data = []
+            for record in history_data:
+                data.append({
+                    'trade_date': record['trade_date'].strftime('%Y-%m-%d'),
+                    'factor_value': record['factor_value']
+                })
+
+            response = TechnicalFactorHistoryResponse(
+                stock_code=stock_code,
+                factor_name=factor_name,
+                start_date=start_date,
+                end_date=end_date,
+                data=data
+            )
+
+            logger.info(f"成功获取股票{stock_code}因子{factor_name}的历史数据，共{len(data)}条记录")
+            return response
+
+        except Exception as e:
+            logger.error(f"获取技术因子历史数据失败: {str(e)}")
+            raise
+
+    async def batch_calculate_technical_factors(
+        self,
+        request: BatchTechnicalFactorRequest
+    ) -> BatchTechnicalFactorResponse:
+        """批量计算技术因子
+
+        Args:
+            request: 批量技术因子计算请求
+
+        Returns:
+            批量技术因子计算响应
+        """
+        calculation_date = request.end_date or datetime.now().strftime('%Y-%m-%d')
+        total_stocks = len(request.stock_codes)
+        successful_stocks = 0
+        failed_stocks = 0
+        results = {}
+        errors = {}
+
+        logger.info(f"开始批量计算技术因子，股票数量: {total_stocks}")
+
+        for stock_code in request.stock_codes:
+            try:
+                # 创建单个股票的计算请求
+                single_request = TechnicalFactorRequest(
+                    stock_code=stock_code,
+                    factors=request.factors,
+                    end_date=request.end_date,
+                    period=20
+                )
+
+                # 计算技术因子
+                single_response = await self.calculate_technical_factors(single_request)
+
+                # 记录成功结果
+                results[stock_code] = single_response.factors
+                successful_stocks += 1
+
+            except Exception as e:
+                # 记录失败信息
+                error_msg = str(e)
+                errors[stock_code] = error_msg
+                failed_stocks += 1
+                logger.warning(f"股票{stock_code}计算失败: {error_msg}")
+
+        response = BatchTechnicalFactorResponse(
+            calculation_date=calculation_date,
+            total_stocks=total_stocks,
+            successful_stocks=successful_stocks,
+            failed_stocks=failed_stocks,
+            results=results,
+            errors=errors if errors else None
+        )
+
+        logger.info(f"批量计算完成，成功: {successful_stocks}, 失败: {failed_stocks}")
+        return response
+
+    async def _get_price_data(
+        self,
+        stock_code: str,
+        end_date: str | None = None,
+        period: int = 100
+    ) -> pd.DataFrame:
+        """获取股票价格数据
+
+        Args:
+            stock_code: 股票代码
+            end_date: 结束日期
+            period: 数据周期（天数）
+
+        Returns:
+            价格数据DataFrame
+        """
+        try:
+            # 计算开始日期
+            if end_date:
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            else:
+                end_dt = datetime.now()
+
+            start_dt = end_dt - timedelta(days=period)
+            start_date = start_dt.strftime('%Y-%m-%d')
+
+            # 从数据访问层获取价格数据
+            price_data = await self.factor_dao.get_stock_price_data(
+                stock_code=stock_code,
+                start_date=start_date,
+                end_date=end_date or end_dt.strftime('%Y-%m-%d')
+            )
+
+            return price_data
+
+        except Exception as e:
+            logger.error(f"获取股票{stock_code}价格数据失败: {str(e)}")
+            raise
+
+    async def _save_technical_factors(
+        self,
+        stock_code: str,
+        calculation_date: str,
+        factors_result: dict[str, float | dict[str, float]]
+    ) -> None:
+        """保存技术因子计算结果
+
+        Args:
+            stock_code: 股票代码
+            calculation_date: 计算日期
+            factors_result: 因子计算结果
+        """
+        try:
+            for factor_name, factor_value in factors_result.items():
+                if isinstance(factor_value, dict):
+                    # 处理复合因子（如MACD）
+                    for sub_factor, sub_value in factor_value.items():
+                        await self.factor_dao.save_technical_factor(
+                            stock_code=stock_code,
+                            factor_name=f"{factor_name}_{sub_factor}",
+                            factor_value=float(sub_value),
+                            trade_date=calculation_date
+                        )
+                else:
+                    # 处理简单因子
+                    await self.factor_dao.save_technical_factor(
+                        stock_code=stock_code,
+                        factor_name=factor_name,
+                        factor_value=float(factor_value),
+                        trade_date=calculation_date
+                    )
+
+            logger.debug(f"成功保存股票{stock_code}的技术因子数据")
+
+        except Exception as e:
+            logger.error(f"保存技术因子数据失败: {str(e)}")
+            raise
+
+    async def get_cached_factors(
+        self,
+        stock_code: str,
+        factor_names: list[str],
+        calculation_date: str
+    ) -> dict[str, float]:
+        """获取缓存的因子数据
+
+        Args:
+            stock_code: 股票代码
+            factor_names: 因子名称列表
+            calculation_date: 计算日期
+
+        Returns:
+            缓存的因子数据
+        """
+        try:
+            cached_factors = await self.factor_dao.get_cached_factors(
+                stock_code=stock_code,
+                factor_names=factor_names,
+                calculation_date=calculation_date
+            )
+
+            return cached_factors
+
+        except Exception as e:
+            logger.warning(f"获取缓存因子数据失败: {str(e)}")
+            return {}
+
+    async def cache_factors(
+        self,
+        stock_code: str,
+        calculation_date: str,
+        factors_data: dict[str, float],
+        ttl: int = 3600
+    ) -> None:
+        """缓存因子数据
+
+        Args:
+            stock_code: 股票代码
+            calculation_date: 计算日期
+            factors_data: 因子数据
+            ttl: 缓存过期时间（秒）
+        """
+        try:
+            await self.factor_dao.cache_factors(
+                stock_code=stock_code,
+                calculation_date=calculation_date,
+                factors_data=factors_data,
+                ttl=ttl
+            )
+
+            logger.debug(f"成功缓存股票{stock_code}的因子数据")
+
+        except Exception as e:
+            logger.warning(f"缓存因子数据失败: {str(e)}")

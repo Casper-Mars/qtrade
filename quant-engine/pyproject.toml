@@ -1,0 +1,144 @@
+[project]
+name = "quant_engine"
+version = "0.1.0"
+description = "Quantitative Factor Calculation Engine"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # Web框架
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    
+    # 数据库和缓存
+    "sqlalchemy>=2.0.0",
+    "pymysql>=1.1.0",
+    "redis>=5.0.0",
+    "alembic>=1.12.0",
+    
+    # HTTP客户端
+    "httpx>=0.25.0",
+    
+    # 数据处理
+    "pandas>=2.1.0",
+    "numpy>=1.24.0",
+    
+    # NLP处理
+    "transformers>=4.35.0",
+    "torch>=2.1.0",
+    
+    # 任务调度
+    "apscheduler>=3.10.0",
+    
+    # 配置管理
+    "pydantic>=2.4.0",
+    "pydantic-settings>=2.0.0",
+    
+    # 日志和工具
+    "loguru>=0.7.0",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+# Ruff配置 - 支持中文字符
+[tool.ruff]
+# 行长度
+line-length = 88
+
+# Python版本
+target-version = "py311"
+
+# 排除的文件和目录
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+[tool.ruff.lint]
+# 启用的规则集
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+
+# 忽略的规则
+ignore = [
+    "E501",  # 行长度限制（由formatter处理）
+    "B008",  # 函数调用中的默认参数
+    "C901",  # 复杂度检查
+]
+
+# 每个文件的最大错误数
+per-file-ignores = {}
+
+[tool.ruff.format]
+# 使用双引号
+quote-style = "double"
+
+# 缩进样式
+indent-style = "space"
+
+# 跳过魔术尾随逗号
+skip-magic-trailing-comma = false
+
+# 行结束符
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+# 导入排序配置
+known-first-party = ["src"]
+force-single-line = false
+force-sort-within-sections = false
+split-on-trailing-comma = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.1",
+    "pandas-stubs>=2.3.0.250703",
+    "pytest>=8.4.1",
+    "ruff>=0.12.10",
+    "types-psutil>=7.0.0.20250822",
+    "types-redis>=4.6.0.20241004",
+]

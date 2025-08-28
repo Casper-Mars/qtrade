@@ -1,5 +1,3 @@
-# 后端系统设计文档
-
 # 因子计算引擎 - 迭代2：核心因子计算功能
 
 ## 0. 现有系统分析
@@ -1431,6 +1429,296 @@ class SentimentFactorDAO:
         return await self.mysql_dao.query_factors("sentiment_factors", conditions, "date ASC")
 ```
 
+### 2.5 统一因子计算功能
+
+#### 2.5.1 功能概述
+
+统一因子计算功能提供一站式的股票因子计算服务，整合技术因子、基本面因子、市场因子和消息面因子的计算能力，支持单股票和批量股票的全因子计算。
+
+**核心特性：**
+- 一次调用计算股票的所有类型因子
+- 支持选择性计算指定类型的因子
+- 并行计算提升性能
+- 多层缓存优化响应速度
+- 部分失败容错处理
+
+#### 2.5.2 业务流程
+
+```mermaid
+sequenceDiagram
+    participant Client as 客户端
+    participant API as API网关
+    participant UFS as 统一因子服务
+    participant FA as 因子聚合器
+    participant TC as 技术因子计算器
+    participant FC as 基本面因子计算器
+    participant MC as 市场因子计算器
+    participant SC as 消息面因子计算器
+    participant Cache as 缓存管理器
+    participant DB as 数据库
+
+    Client->>API: 请求计算股票全部因子
+    API->>UFS: 转发计算请求
+    UFS->>Cache: 检查完整因子缓存
+    
+    alt 缓存命中
+        Cache-->>UFS: 返回缓存数据
+        UFS-->>API: 返回因子数据
+        API-->>Client: 返回结果
+    else 缓存未命中
+        UFS->>FA: 启动并行因子计算
+        
+        par 并行计算各类因子
+            FA->>TC: 计算技术因子
+            TC-->>FA: 返回技术因子结果
+        and
+            FA->>FC: 计算基本面因子
+            FC-->>FA: 返回基本面因子结果
+        and
+            FA->>MC: 计算市场因子
+            MC-->>FA: 返回市场因子结果
+        and
+            FA->>SC: 计算消息面因子
+            SC-->>FA: 返回消息面因子结果
+        end
+        
+        FA->>FA: 聚合所有因子结果
+        FA-->>UFS: 返回聚合结果
+        
+        UFS->>DB: 保存因子数据
+        UFS->>Cache: 更新缓存
+        
+        UFS-->>API: 返回因子数据
+        API-->>Client: 返回结果
+    end
+```
+
+#### 2.5.3 API接口设计
+
+**计算股票全部因子**
+```http
+POST /api/v1/factors/unified/calculate
+Content-Type: application/json
+
+{
+  "stock_code": "000001",
+  "calculation_date": "2024-01-15",
+  "include_categories": ["technical", "fundamental", "market", "sentiment"],
+  "technical_config": {
+    "ma_periods": [5, 10, 20],
+    "rsi_period": 14
+  },
+  "fundamental_config": {
+    "report_period": "2023Q4",
+    "report_type": "annual"
+  },
+  "sentiment_config": {
+    "news_days": 7,
+    "min_relevance": 0.6
+  }
+}
+```
+
+**响应格式**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "stock_code": "000001",
+    "calculation_date": "2024-01-15T00:00:00Z",
+    "calculation_timestamp": "2024-01-15T10:30:00Z",
+    "factors": {
+      "technical": {
+        "ma_5": 12.45,
+        "ma_10": 12.38,
+        "ma_20": 12.25,
+        "rsi_14": 65.2,
+        "macd": 0.15
+      },
+      "fundamental": {
+        "pe_ratio": 15.6,
+        "pb_ratio": 1.8,
+        "roe": 0.12,
+        "debt_ratio": 0.35
+      },
+      "market": {
+        "market_cap": 50000000000,
+        "turnover_rate": 0.025,
+        "volatility_20d": 0.18,
+        "momentum_20d": 0.05
+      },
+      "sentiment": {
+        "news_sentiment_score": 0.65,
+        "news_count": 15,
+        "positive_ratio": 0.7,
+        "negative_ratio": 0.2
+      }
+    },
+    "metadata": {
+      "calculation_duration_ms": 1250,
+      "cache_status": {
+        "technical": "miss",
+        "fundamental": "hit",
+        "market": "miss",
+        "sentiment": "miss"
+      },
+      "data_sources": {
+        "technical": "real_time",
+        "fundamental": "quarterly_report",
+        "market": "real_time",
+        "sentiment": "news_api"
+      },
+      "errors": []
+    }
+  }
+}
+```
+
+**批量计算多股票全部因子**
+```http
+POST /api/v1/factors/unified/batch-calculate
+Content-Type: application/json
+
+{
+  "stock_codes": ["000001", "000002", "600000"],
+  "calculation_date": "2024-01-15",
+  "include_categories": ["technical", "market"],
+  "batch_size": 10
+}
+```
+
+**查询股票完整因子历史**
+```http
+GET /api/v1/factors/unified/history?stock_code=000001&start_date=2024-01-01&end_date=2024-01-15&categories=technical,market
+```
+
+#### 2.5.4 核心组件设计
+
+**统一因子计算服务（UnifiedFactorService）**
+```go
+type UnifiedFactorService struct {
+    technicalCalculator   *TechnicalFactorCalculator
+    fundamentalCalculator *FundamentalFactorCalculator
+    marketCalculator      *MarketFactorCalculator
+    sentimentCalculator   *SentimentFactorCalculator
+    cacheManager         *CacheManager
+    dataClient           *DataClient
+    logger               *Logger
+}
+
+// 计算股票全部因子
+func (s *UnifiedFactorService) CalculateAllFactors(ctx context.Context, req *CalculateAllFactorsRequest) (*AllFactorsResponse, error)
+
+// 批量计算多股票全部因子
+func (s *UnifiedFactorService) BatchCalculateAllFactors(ctx context.Context, req *BatchCalculateAllFactorsRequest) (*BatchAllFactorsResponse, error)
+
+// 查询股票完整因子历史
+func (s *UnifiedFactorService) GetFactorHistory(ctx context.Context, req *FactorHistoryRequest) (*FactorHistoryResponse, error)
+```
+
+**因子聚合器（FactorAggregator）**
+```go
+type FactorAggregator struct {
+    calculators map[string]FactorCalculator
+    executor    *ParallelExecutor
+}
+
+// 并行计算多类型因子
+func (a *FactorAggregator) CalculateFactors(ctx context.Context, stockCode string, date time.Time, categories []string) (*AggregatedFactors, error)
+
+// 合并因子计算结果
+func (a *FactorAggregator) MergeResults(results map[string]*FactorResult) (*AllFactorsData, error)
+```
+
+**缓存管理器（CacheManager）**
+```go
+type CacheManager struct {
+    redis *redis.Client
+}
+
+// 获取完整因子缓存
+func (c *CacheManager) GetAllFactorsCache(stockCode string, date time.Time) (*AllFactorsData, error)
+
+// 设置完整因子缓存
+func (c *CacheManager) SetAllFactorsCache(stockCode string, date time.Time, data *AllFactorsData, ttl time.Duration) error
+
+// 获取部分因子缓存
+func (c *CacheManager) GetPartialFactorsCache(stockCode string, date time.Time, categories []string) (map[string]*FactorData, error)
+```
+
+#### 2.5.5 数据模型
+
+**统一因子计算请求模型**
+```go
+type CalculateAllFactorsRequest struct {
+    StockCode         string                 `json:"stock_code" validate:"required"`
+    CalculationDate   time.Time             `json:"calculation_date" validate:"required"`
+    IncludeCategories []string              `json:"include_categories" validate:"required,min=1"`
+    TechnicalConfig   *TechnicalConfig      `json:"technical_config,omitempty"`
+    FundamentalConfig *FundamentalConfig    `json:"fundamental_config,omitempty"`
+    SentimentConfig   *SentimentConfig      `json:"sentiment_config,omitempty"`
+}
+
+type TechnicalConfig struct {
+    MAPeriods []int `json:"ma_periods"`
+    RSIPeriod int   `json:"rsi_period"`
+}
+
+type FundamentalConfig struct {
+    ReportPeriod string `json:"report_period"`
+    ReportType   string `json:"report_type"`
+}
+
+type SentimentConfig struct {
+    NewsDays      int     `json:"news_days"`
+    MinRelevance  float64 `json:"min_relevance"`
+}
+```
+
+**统一因子响应模型**
+```go
+type AllFactorsResponse struct {
+    StockCode             string                 `json:"stock_code"`
+    CalculationDate       time.Time             `json:"calculation_date"`
+    CalculationTimestamp  time.Time             `json:"calculation_timestamp"`
+    Factors               *AllFactorsData       `json:"factors"`
+    Metadata              *CalculationMetadata  `json:"metadata"`
+}
+
+type AllFactorsData struct {
+    Technical    map[string]interface{} `json:"technical,omitempty"`
+    Fundamental  map[string]interface{} `json:"fundamental,omitempty"`
+    Market       map[string]interface{} `json:"market,omitempty"`
+    Sentiment    map[string]interface{} `json:"sentiment,omitempty"`
+}
+
+type CalculationMetadata struct {
+    CalculationDurationMs int64                  `json:"calculation_duration_ms"`
+    CacheStatus          map[string]string      `json:"cache_status"`
+    DataSources          map[string]string      `json:"data_sources,omitempty"`
+    Errors               []string               `json:"errors,omitempty"`
+}
+```
+
+#### 2.5.6 技术限制和约束
+
+**计算限制**
+- 单次请求最多支持计算100只股票的全部因子
+- 并行计算任务数限制为20个
+- 单个股票因子计算超时时间为30秒
+- 批量计算总超时时间为5分钟
+
+**缓存限制**
+- 完整因子数据缓存大小限制为1MB
+- 单个Redis键的TTL不超过24小时
+- 缓存命中率要求达到80%以上
+
+**数据一致性约束**
+- 同一股票同一日期的因子数据必须保持一致
+- 缓存与数据库数据不一致时，以数据库为准
+- 计算过程中发生错误时，不更新任何缓存
+
 ## 3. 数据库设计
 
 ### 3.1 数据库架构
@@ -1633,6 +1921,169 @@ POST /api/v1/factors/batch-calculate
 }
 ```
 
+### 4.4 统一因子计算接口
+
+#### 4.4.1 计算股票全部因子
+
+**接口描述：** 一次性计算指定股票的所有类型因子，包括技术因子、基本面因子、市场因子和新闻情绪因子。
+
+```
+POST /api/v1/factors/calculate-all
+```
+
+**请求体：**
+```json
+{
+  "stock_code": "000001",
+  "calculation_date": "2024-01-15",
+  "include_categories": ["technical", "fundamental", "market", "sentiment"],
+  "technical_config": {
+    "ma_periods": [5, 10, 20],
+    "rsi_period": 14
+  },
+  "fundamental_config": {
+    "report_period": "2023Q3",
+    "report_type": "quarterly"
+  },
+  "sentiment_config": {
+    "news_days": 7,
+    "min_relevance": 0.7
+  }
+}
+```
+
+**响应格式：**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "stock_code": "000001",
+    "calculation_date": "2024-01-15",
+    "calculation_timestamp": "2024-01-15T10:30:00Z",
+    "factors": {
+      "technical": {
+        "MA5": 12.45,
+        "MA10": 12.38,
+        "MA20": 12.25,
+        "RSI": 65.2,
+        "MACD": {
+          "dif": 0.15,
+          "dea": 0.12,
+          "histogram": 0.03
+        }
+      },
+      "fundamental": {
+        "ROE": 0.1245,
+        "ROA": 0.0856,
+        "GROSS_MARGIN": 0.3421,
+        "DEBT_RATIO": 0.4567
+      },
+      "market": {
+        "MARKET_CAP": 150000000000,
+        "FLOAT_MARKET_CAP": 120000000000,
+        "TURNOVER_RATE": 0.025,
+        "PE_RATIO": 15.6
+      },
+      "sentiment": {
+        "NEWS_SENTIMENT_SCORE": 0.65,
+        "NEWS_COUNT_7D": 15,
+        "POSITIVE_NEWS_RATIO": 0.6,
+        "SENTIMENT_TREND": "improving"
+      }
+    },
+    "metadata": {
+      "calculation_duration_ms": 1250,
+      "cache_status": {
+        "technical": "computed",
+        "fundamental": "cached",
+        "market": "computed",
+        "sentiment": "computed"
+      }
+    }
+  },
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+#### 4.4.2 批量计算多股票全部因子
+
+```
+POST /api/v1/factors/batch-calculate-all
+```
+
+**请求体：**
+```json
+{
+  "stock_codes": ["000001", "000002", "600000"],
+  "calculation_date": "2024-01-15",
+  "include_categories": ["technical", "fundamental", "market"],
+  "parallel_limit": 10
+}
+```
+
+#### 4.4.3 查询股票完整因子历史
+
+```
+GET /api/v1/factors/history-all?stock_code=000001&start_date=2024-01-01&end_date=2024-01-15&categories=technical,market
+```
+
+#### 4.4.4 统一因子计算时序图
+
+```mermaid
+sequenceDiagram
+    participant Client as 客户端
+    participant API as 统一因子API
+    participant Service as 因子服务
+    participant TechCalc as 技术因子计算器
+    participant FundCalc as 基本面因子计算器
+    participant MarketCalc as 市场因子计算器
+    participant SentCalc as 情绪因子计算器
+    participant DataClient as 数据客户端
+    participant Cache as Redis缓存
+    participant DB as MySQL数据库
+    
+    Client->>API: POST /factors/calculate-all
+    API->>API: 参数验证
+    API->>Service: 调用统一因子计算服务
+    
+    Service->>Cache: 检查完整因子缓存
+    alt 缓存完全命中
+        Cache-->>Service: 返回所有因子数据
+        Service-->>API: 返回计算结果
+    else 缓存部分命中或未命中
+        par 并行计算各类因子
+            Service->>TechCalc: 计算技术因子
+            TechCalc->>DataClient: 获取行情数据
+            DataClient-->>TechCalc: 返回数据
+            TechCalc-->>Service: 返回技术因子
+        and
+            Service->>FundCalc: 计算基本面因子
+            FundCalc->>DataClient: 获取财务数据
+            DataClient-->>FundCalc: 返回数据
+            FundCalc-->>Service: 返回基本面因子
+        and
+            Service->>MarketCalc: 计算市场因子
+            MarketCalc->>DataClient: 获取市场数据
+            DataClient-->>MarketCalc: 返回数据
+            MarketCalc-->>Service: 返回市场因子
+        and
+            Service->>SentCalc: 计算情绪因子
+            SentCalc->>DataClient: 获取新闻数据
+            DataClient-->>SentCalc: 返回数据
+            SentCalc-->>Service: 返回情绪因子
+        end
+        
+        Service->>Service: 聚合所有因子结果
+        Service->>DB: 批量保存因子数据
+        Service->>Cache: 更新缓存
+        
+        Service-->>API: 返回聚合结果
+    end
+    
+    API-->>Client: 响应完整因子数据
+ ```
+
 ### 4.4 因子计算时序图
 
 ```mermaid
@@ -1793,3 +2244,5 @@ class ErrorCode:
 [2025-01-16] 优化 重构目录结构，将clients、nlp、utils、config、api等通用组件提取到src根目录，提高代码复用性和架构清晰度
 [2025-01-16] 修改 NLP技术方案重大更新：将通用FinBERT替换为针对中国A股市场特化的中文金融BERT模型，主要采用熵简科技开源的FinBERT（中文金融领域特化），备选BBT-FinT5模型，支持多模型动态切换和性能对比，提升A股新闻情绪分析的准确性
 [2025-01-16] 优化 升级到熵简科技最新的FinBERT2-large模型（valuesimplex-ai-lab/FinBERT2-large），保留第一代FinBERT作为备用模型，确保使用最先进的中文金融NLP技术
+[2025-01-16] 新增 统一因子计算功能设计，包括统一因子计算API接口、核心组件设计（UnifiedFactorService、FactorAggregator、CacheManager）、数据模型、多层缓存策略、并行计算优化、错误处理机制和技术限制约束，实现一次性计算指定股票全部因子的能力
+[2025-01-16] 修改 将统一因子计算功能从第5章移动到第2章作为2.5节，调整文档结构使其更符合逻辑层次，统一因子计算功能作为功能模块设计的一部分

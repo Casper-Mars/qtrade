@@ -9,6 +9,7 @@ from .fundamental import router as fundamental_router
 from .market import router as market_router
 from .sentiment import router as sentiment_router
 from .technical import router as technical_router
+from .unified import router as unified_router
 
 # 创建v1版本的主路由
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -36,6 +37,12 @@ api_v1_router.include_router(
     market_router,
     prefix="/market",
     tags=["市场因子"]
+)
+
+api_v1_router.include_router(
+    unified_router,
+    prefix="/unified",
+    tags=["统一因子"]
 )
 
 __all__ = ["api_v1_router"]

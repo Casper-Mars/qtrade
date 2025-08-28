@@ -153,8 +153,10 @@ graph TB
 **Web框架：** FastAPI（高性能、自动文档生成）
 **数据处理：** Pandas、NumPy（数据分析和计算）
 **NLP处理：** 
-- transformers（预训练模型，使用FinBERT）
-- torch（深度学习框架，FinBERT运行依赖）
+- transformers（预训练模型框架）
+- torch（深度学习框架）
+- 主要模型：熵简科技FinBERT2-large（中文金融领域特化，最新版本）
+- 备选模型：BBT-FinT5（中文金融理解和生成）
 **数据库：** 
 - MySQL（因子数据存储）
 - Redis（缓存和临时数据）
@@ -1072,10 +1074,10 @@ sequenceDiagram
         
         Calculator->>SentimentAnalyzer: 执行情绪分析
         SentimentAnalyzer->>SentimentAnalyzer: 组合标题和正文
-        SentimentAnalyzer->>NLPModelManager: 调用FinBERT预测
-        Note over NLPModelManager: FinBERT模型已在服务启动时加载(单例)
+        SentimentAnalyzer->>NLPModelManager: 调用中文金融BERT预测
+        Note over NLPModelManager: 中文金融BERT模型已在服务启动时加载(单例)
         NLPModelManager->>NLPModelManager: 文本tokenization
-        NLPModelManager->>NLPModelManager: FinBERT模型推理
+        NLPModelManager->>NLPModelManager: 中文金融BERT模型推理
         NLPModelManager-->>SentimentAnalyzer: 返回情绪分数
         SentimentAnalyzer-->>Calculator: 返回情绪分析结果
         Calculator->>Calculator: 计算影响权重
@@ -1236,25 +1238,85 @@ class SentimentAnalyzer:
 class NLPModelManager:
     """NLP模型管理器 - 单例模式
     
-    在服务启动时加载FinBERT模型，全局复用，避免重复加载
+    在服务启动时加载中文金融BERT模型，全局复用，避免重复加载
+    支持多个模型的动态切换和性能对比
     """
     _instance = None
     _initialized = False
     
     def __new__(cls):
-        pass
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
     
     def __init__(self):
-        self.model = None
-        self.tokenizer = None
+        if not self._initialized:
+            self.models = {}
+            self.tokenizers = {}
+            self.current_model = "entropy_finbert2"
+            self._load_models()
+            NLPModelManager._initialized = True
     
-    def _load_model(self):
-        """加载预训练的情绪分析模型"""
+    def _load_models(self):
+        """加载中文金融预训练模型"""
+        # 主要模型：熵简科技FinBERT2-large（最新版本）
+         model_configs = {
+             "entropy_finbert2": {
+                 "model_name": "valuesimplex-ai-lab/FinBERT2-large",
+                 "description": "熵简科技最新的FinBERT2-large模型，中文金融领域特化"
+             },
+             "entropy_finbert_v1": {
+                 "model_name": "valuesimplex/FinBERT_L-12_H-768_A-12_pytorch",
+                 "description": "熵简科技第一代FinBERT模型（备用）"
+             },
+            "bbt_fint5": {
+                "model_name": "ssymmetry/BBT-FinT5-large", 
+                "description": "BBT-FinT5中文金融理解和生成模型"
+            }
+        }
+        
+        for model_key, config in model_configs.items():
+            try:
+                self._load_single_model(model_key, config)
+            except Exception as e:
+                logger.warning(f"加载模型{model_key}失败: {e}")
+    
+    def _load_single_model(self, model_key: str, config: Dict[str, str]):
+        """加载单个模型"""
         pass
     
-    async def predict_sentiment(self, text: str) -> Dict[str, float]:
-        """预测文本情绪"""
+    async def predict_sentiment(self, text: str, model_name: str = None) -> Dict[str, float]:
+        """预测文本情绪
+        
+        Args:
+            text: 待分析文本
+            model_name: 指定模型名称，默认使用当前模型
+            
+        Returns:
+            {
+                "positive": 0.7,    # 积极情绪概率
+                "negative": 0.2,    # 消极情绪概率 
+                "neutral": 0.1,     # 中性情绪概率
+                "confidence": 0.85, # 预测置信度
+                "model_used": "entropy_finbert2"
+            }
+        """
         pass
+    
+    def switch_model(self, model_name: str) -> bool:
+        """切换当前使用的模型"""
+        if model_name in self.models:
+            self.current_model = model_name
+            return True
+        return False
+    
+    def get_model_info(self) -> Dict[str, Any]:
+        """获取当前加载的模型信息"""
+        return {
+            "current_model": self.current_model,
+            "available_models": list(self.models.keys()),
+            "model_status": {k: v is not None for k, v in self.models.items()}
+        }
 ```
 
 **因子服务层**
@@ -1729,3 +1791,5 @@ class ErrorCode:
 [2025-01-16] 修改 更新新闻情绪因子计算时序图：移除公告和政策数据获取流程，添加详细的NLP模型交互步骤，体现FinBERT模型的完整处理流程
 [2025-01-16] 优化 将NLPModelManager改为单例模式，FinBERT模型在服务启动时加载并全局复用，避免每次计算时重复加载模型，提升性能
 [2025-01-16] 优化 重构目录结构，将clients、nlp、utils、config、api等通用组件提取到src根目录，提高代码复用性和架构清晰度
+[2025-01-16] 修改 NLP技术方案重大更新：将通用FinBERT替换为针对中国A股市场特化的中文金融BERT模型，主要采用熵简科技开源的FinBERT（中文金融领域特化），备选BBT-FinT5模型，支持多模型动态切换和性能对比，提升A股新闻情绪分析的准确性
+[2025-01-16] 优化 升级到熵简科技最新的FinBERT2-large模型（valuesimplex-ai-lab/FinBERT2-large），保留第一代FinBERT作为备用模型，确保使用最先进的中文金融NLP技术

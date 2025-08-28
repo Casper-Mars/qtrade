@@ -316,58 +316,87 @@
   - _前置条件：任务I001、任务D001、任务M001完成_
   - _集成测试点：NLP模型推理测试、情绪分析准确性验证、新闻数据处理测试_
 
-### 模块E：批量计算模块
+### 模块E：统一因子计算模块
 
-#### 功能点E1：批量因子计算功能
-- [ ] **任务M005. 实现批量因子计算功能**
+#### 功能点E1：统一因子计算功能
+- [ ] **任务M005. 实现统一因子计算功能（完整端到端实现）**
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
         participant Client as 客户端
-        participant API as 批量计算API
-        participant Service as 因子服务
-        participant Scheduler as 任务调度器
-        participant Calculator as 各类计算器
-        participant DAO as 数据访问层
-        participant DB as MySQL数据库
-        
-        Client->>API: POST /api/v1/batch/calculate
+        participant API as 统一因子API
+        participant UFS as 统一因子服务
+        participant FA as 因子聚合器
+        participant TC as 技术因子计算器
+        participant FC as 基本面因子计算器
+        participant MC as 市场因子计算器
+        participant SC as 消息面因子计算器
+        participant Cache as 缓存管理器
+        participant DB as 数据库
+
+        Client->>API: POST /api/v1/factors/unified/calculate
         API->>API: 参数验证
-        API->>Service: 调用批量计算服务
-        Service->>Scheduler: 创建批量任务
+        API->>UFS: 调用统一因子计算服务
+        UFS->>Cache: 检查完整因子缓存
         
-        loop 批量处理
-            Scheduler->>Calculator: 并发执行因子计算
-            Calculator->>Calculator: 计算单个股票因子
-            Calculator-->>Scheduler: 返回计算结果
+        alt 缓存命中
+            Cache-->>UFS: 返回缓存数据
+            UFS-->>API: 返回因子数据
+            API-->>Client: 返回结果
+        else 缓存未命中
+            UFS->>FA: 启动并行因子计算
+            
+            par 并行计算各类因子
+                FA->>TC: 计算技术因子
+                TC-->>FA: 返回技术因子结果
+            and
+                FA->>FC: 计算基本面因子
+                FC-->>FA: 返回基本面因子结果
+            and
+                FA->>MC: 计算市场因子
+                MC-->>FA: 返回市场因子结果
+            and
+                FA->>SC: 计算消息面因子
+                SC-->>FA: 返回消息面因子结果
+            end
+            
+            FA->>FA: 聚合所有因子结果
+            FA-->>UFS: 返回聚合结果
+            
+            UFS->>DB: 保存因子数据
+            UFS->>Cache: 更新缓存
+            
+            UFS-->>API: 返回因子数据
+            API-->>Client: 返回结果
         end
-        
-        Scheduler->>DAO: 批量保存结果
-        DAO->>DB: 批量写入数据库
-        Scheduler-->>Service: 返回批量结果
-        Service-->>API: 返回处理状态
-        API-->>Client: 响应批量任务ID
     ```
   - **实现步骤**：
-    1. 实现批量计算API接口（参考design_backend.md第2.5.3节）
-       * 路由定义：POST /api/v1/batch/calculate
-       * GET /api/v1/batch/status（任务状态查询）
-       * 支持异步任务处理
-    2. 实现任务调度器（参考design_backend.md第2.5.4节）
-       * APScheduler集成和配置
-       * 并发任务管理和资源控制
-       * 任务状态跟踪和错误处理
-    3. 实现批量数据处理逻辑
-       * 数据分片和并行处理
-       * 内存优化和性能调优
-       * 进度监控和结果聚合
-    4. 集成所有因子计算器
-       * 统一的批量计算接口
-       * 计算器负载均衡
-  - _Requirements: 批量计算需求_
+    1. 实现统一因子计算API接口层（参考design_backend.md第2.5.3节）
+       * 路由定义：POST /api/v1/factors/unified/calculate
+       * POST /api/v1/factors/unified/batch-calculate（批量计算）
+       * GET /api/v1/factors/unified/history（历史查询）
+       * 支持选择性因子类型计算和自定义配置参数
+    2. 实现统一因子服务（UnifiedFactorService）（参考design_backend.md第2.5.4节）
+       * 统一的因子计算入口和协调逻辑
+       * 集成所有类型的因子计算器
+       * 实现计算结果聚合和数据持久化
+       * 错误处理和部分失败容错机制
+    3. 实现因子聚合器（FactorAggregator）
+       * 并行执行多类型因子计算
+       * 计算结果合并和格式化
+       * 计算性能监控和优化
+    4. 实现缓存管理器（CacheManager）
+       * 完整因子数据缓存策略
+       * 部分因子缓存和增量更新
+       * 多层缓存架构和失效策略
+    5. 集成数据访问层和性能优化
+       * 批量数据保存和查询优化
+       * 并发控制和资源管理
+       * 计算超时和限流机制
+  - _Requirements: 统一因子计算需求_
   - _Design Reference: design_backend.md 第2.5节_
   - _前置条件：任务M001、M002、M003、M004完成_
-  - _集成测试点：批量任务执行测试、并发性能测试、错误恢复测试_
+  - _集成测试点：统一API调用测试、并行计算性能测试、缓存策略验证、错误容错测试_
 
 ## 第四阶段：系统优化任务
 
@@ -402,7 +431,7 @@
 
 **第三优先级（高级功能）：**
 6. 任务M004（新闻情绪因子计算）
-7. 任务M005（批量计算功能）
+7. 任务M005（统一因子计算功能）
 
 **第四优先级（系统优化）：**
 8. 任务I002（集成测试与优化）

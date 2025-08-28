@@ -8,11 +8,10 @@
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
 
 import numpy as np
-import pandas as pd
 
 from ...clients.data_collector_client import DataCollectorClient
 from ...utils.exceptions import DataNotFoundError, FactorCalculationException
@@ -33,7 +32,7 @@ class MarketFactorCalculator:
             data_client: 数据采集客户端
         """
         self.data_client = data_client
-        self.supported_factors = {
+        self.supported_factors: dict[str, Callable[[str, str], Awaitable[float]]] = {
             "MARKET_CAP": self.calculate_market_cap,
             "FLOAT_MARKET_CAP": self.calculate_float_market_cap,
             "TURNOVER_RATE": self.calculate_turnover_rate,
@@ -45,8 +44,8 @@ class MarketFactorCalculator:
         }
 
     async def calculate_factors(
-        self, stock_code: str, factors: List[str], trade_date: str
-    ) -> Dict[str, float]:
+        self, stock_code: str, factors: list[str], trade_date: str
+    ) -> dict[str, float]:
         """批量计算市场因子
 
         Args:
@@ -99,7 +98,7 @@ class MarketFactorCalculator:
             )
             if not stock_data:
                 raise DataNotFoundError(f"股票数据不存在: {stock_code}, {trade_date}")
-            
+
             # 从返回数据中提取当日数据
             if isinstance(stock_data, list) and len(stock_data) > 0:
                 quote_data = stock_data[0]
@@ -113,7 +112,10 @@ class MarketFactorCalculator:
             if close_price is None or total_share is None:
                 raise DataNotFoundError(f"缺少计算市值的必要数据: {stock_code}")
 
-            market_cap = close_price * total_share  # 万元
+            # 确保类型转换为float
+            close_price_float = float(close_price)
+            total_share_float = float(total_share)
+            market_cap = close_price_float * total_share_float  # 万元
             return round(market_cap, 2)
 
         except Exception as e:
@@ -144,7 +146,7 @@ class MarketFactorCalculator:
             )
             if not stock_data:
                 raise DataNotFoundError(f"股票数据不存在: {stock_code}, {trade_date}")
-            
+
             # 从返回数据中提取当日数据
             if isinstance(stock_data, list) and len(stock_data) > 0:
                 quote_data = stock_data[0]
@@ -162,7 +164,10 @@ class MarketFactorCalculator:
             if close_price is None or float_share is None:
                 raise DataNotFoundError(f"缺少计算流通市值的必要数据: {stock_code}")
 
-            float_market_cap = close_price * float_share  # 万元
+            # 确保类型转换为float
+            close_price_float = float(close_price)
+            float_share_float = float(float_share)
+            float_market_cap = close_price_float * float_share_float  # 万元
             return round(float_market_cap, 2)
 
         except Exception as e:
@@ -204,12 +209,12 @@ class MarketFactorCalculator:
             # 计算每日换手率
             if not quotes or len(quotes) == 0:
                 raise DataNotFoundError(f"历史行情数据不足: {stock_code}")
-            
+
             # 从最新数据中获取流通股本
             float_share = quotes[-1].get("float_share")  # 流通股本（万股）
             if float_share is None:
                 raise DataNotFoundError(f"缺少流通股本数据: {stock_code}")
-            
+
             # 如果流通股本为0，返回0
             if float_share == 0:
                 return 0.0
@@ -224,7 +229,7 @@ class MarketFactorCalculator:
 
             # 计算平均换手率
             avg_turnover_rate = np.mean(turnover_rates)
-            return round(avg_turnover_rate, 4)
+            return round(float(avg_turnover_rate), 4)
 
         except Exception as e:
             logger.error(
@@ -275,7 +280,7 @@ class MarketFactorCalculator:
 
             # 成交量比率 = 当日成交量 / 历史平均成交量
             volume_ratio = current_volume / avg_volume
-            return round(volume_ratio, 4)
+            return round(float(volume_ratio), 4)
 
         except Exception as e:
             logger.error(
@@ -326,7 +331,7 @@ class MarketFactorCalculator:
                 return 0.0
 
             price_volatility = (price_std / price_mean) * 100
-            return round(price_volatility, 4)
+            return round(float(price_volatility), 4)
 
         except Exception as e:
             logger.error(
@@ -379,7 +384,7 @@ class MarketFactorCalculator:
 
             # 收益率波动率 = 日收益率的标准差
             return_volatility = np.std(returns)
-            return round(return_volatility, 4)
+            return round(float(return_volatility), 4)
 
         except Exception as e:
             logger.error(
@@ -425,7 +430,7 @@ class MarketFactorCalculator:
                 raise DataNotFoundError(f"价格数据无效: {stock_code}")
 
             price_momentum = (current_price - past_price) / past_price * 100
-            return round(price_momentum, 4)
+            return round(float(price_momentum), 4)
 
         except Exception as e:
             logger.error(
@@ -478,7 +483,7 @@ class MarketFactorCalculator:
 
             # 收益率动量 = 累计收益率
             return_momentum = sum(returns)
-            return round(return_momentum, 4)
+            return round(float(return_momentum), 4)
 
         except Exception as e:
             logger.error(

@@ -136,21 +136,26 @@ class MarketFactor(Base):
     )
 
 
-class NewsSentimentFactor(Base):
-    """新闻情绪因子数据表
+class SentimentFactor(Base):
+    """情绪因子数据表
 
-    存储基于新闻文本情绪分析计算的情绪因子。
+    存储基于新闻文本情绪分析计算的情绪因子，包含详细的情绪分析结果。
     """
 
-    __tablename__ = "news_sentiment_factors"
+    __tablename__ = "sentiment_factors"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True, comment="主键ID")
     stock_code = Column(String(10), nullable=False, comment="股票代码")
-    factor_value: Any = Column(DECIMAL(10, 6), nullable=False, comment="情绪因子值")
+    sentiment_factor: Any = Column(DECIMAL(10, 6), nullable=False, comment="情绪因子值(-1到1)")
+    positive_score: Any = Column(DECIMAL(10, 6), nullable=False, comment="积极情绪分数")
+    negative_score: Any = Column(DECIMAL(10, 6), nullable=False, comment="消极情绪分数")
+    neutral_score: Any = Column(DECIMAL(10, 6), nullable=False, comment="中性情绪分数")
+    confidence: Any = Column(DECIMAL(10, 6), nullable=False, comment="置信度")
+    news_count = Column(Integer, nullable=False, default=0, comment="参与计算的新闻数量")
     calculation_date = Column(Date, nullable=False, comment="计算日期")
-    news_count = Column(
-        Integer, nullable=False, default=0, comment="参与计算的新闻数量"
-    )
+    start_date = Column(Date, nullable=False, comment="新闻数据开始日期")
+    end_date = Column(Date, nullable=False, comment="新闻数据结束日期")
+    volume_adjustment: Any = Column(DECIMAL(10, 6), nullable=False, comment="新闻量调整系数")
     created_at = Column(
         DateTime,
         nullable=False,
@@ -166,8 +171,9 @@ class NewsSentimentFactor(Base):
 
     # 索引定义
     __table_args__ = (
-        Index("idx_stock_date", "stock_code", "calculation_date"),
+        Index("idx_stock_calc_date", "stock_code", "calculation_date"),
         Index("idx_calculation_date", "calculation_date"),
-        UniqueConstraint("stock_code", "calculation_date", name="uk_stock_date"),
-        {"comment": "新闻情绪因子表"},
+        Index("idx_sentiment_factor", "sentiment_factor"),
+        UniqueConstraint("stock_code", "calculation_date", name="uk_stock_calc_date"),
+        {"comment": "情绪因子表"},
     )

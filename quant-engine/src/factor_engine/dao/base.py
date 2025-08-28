@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from ..models.database import (
     FundamentalFactor,
     MarketFactor,
-    NewsSentimentFactor,
+    SentimentFactor,
     TechnicalFactor,
 )
 
@@ -444,10 +444,10 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         calculation_date: date,
         news_count: int,
         **kwargs: Any,
-    ) -> NewsSentimentFactor:
+    ) -> SentimentFactor:
         """创建新闻情绪因子数据"""
         try:
-            factor = NewsSentimentFactor(
+            factor = SentimentFactor(
                 stock_code=stock_code,
                 factor_value=factor_value,
                 calculation_date=calculation_date,
@@ -463,24 +463,24 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
             self.db_session.rollback()
             raise e
 
-    def get_by_id(self, factor_id: int) -> NewsSentimentFactor | None:
+    def get_by_id(self, factor_id: int) -> SentimentFactor | None:
         """根据ID获取新闻情绪因子数据"""
         return (
-            self.db_session.query(NewsSentimentFactor)
-            .filter(NewsSentimentFactor.id == factor_id)
+            self.db_session.query(SentimentFactor)
+            .filter(SentimentFactor.id == factor_id)
             .first()
         )
 
     def get_by_stock_and_date(
         self, stock_code: str, calculation_date: date
-    ) -> list[NewsSentimentFactor]:
+    ) -> list[SentimentFactor]:
         """根据股票代码和计算日期获取新闻情绪因子数据"""
         return (
-            self.db_session.query(NewsSentimentFactor)
+            self.db_session.query(SentimentFactor)
             .filter(
                 and_(
-                    NewsSentimentFactor.stock_code == stock_code,
-                    NewsSentimentFactor.calculation_date == calculation_date,
+                    SentimentFactor.stock_code == stock_code,
+                    SentimentFactor.calculation_date == calculation_date,
                 )
             )
             .all()
@@ -491,13 +491,13 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         try:
             kwargs["updated_at"] = datetime.now()
             update_data = {
-                getattr(NewsSentimentFactor, k): v
+                getattr(SentimentFactor, k): v
                 for k, v in kwargs.items()
-                if hasattr(NewsSentimentFactor, k)
+                if hasattr(SentimentFactor, k)
             }
             result = (
-                self.db_session.query(NewsSentimentFactor)
-                .filter(NewsSentimentFactor.id == factor_id)
+                self.db_session.query(SentimentFactor)
+                .filter(SentimentFactor.id == factor_id)
                 .update(update_data)
             )
 
@@ -511,8 +511,8 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         """删除新闻情绪因子数据"""
         try:
             result = (
-                self.db_session.query(NewsSentimentFactor)
-                .filter(NewsSentimentFactor.id == factor_id)
+                self.db_session.query(SentimentFactor)
+                .filter(SentimentFactor.id == factor_id)
                 .delete()
             )
 
@@ -524,12 +524,12 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
 
     def get_latest_by_stock(
         self, stock_code: str, limit: int = 10
-    ) -> list[NewsSentimentFactor]:
+    ) -> list[SentimentFactor]:
         """获取股票最新的新闻情绪因子数据"""
         return (
-            self.db_session.query(NewsSentimentFactor)
-            .filter(NewsSentimentFactor.stock_code == stock_code)
-            .order_by(desc(NewsSentimentFactor.calculation_date))
+            self.db_session.query(SentimentFactor)
+            .filter(SentimentFactor.stock_code == stock_code)
+            .order_by(desc(SentimentFactor.calculation_date))
             .limit(limit)
             .all()
         )

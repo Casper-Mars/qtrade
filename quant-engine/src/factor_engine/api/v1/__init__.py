@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from .fundamental import router as fundamental_router
 from .market import router as market_router
+from .sentiment import router as sentiment_router
 from .technical import router as technical_router
 
 # 创建v1版本的主路由
@@ -17,6 +18,12 @@ api_v1_router.include_router(
     technical_router,
     prefix="/technical",
     tags=["技术因子"]
+)
+
+api_v1_router.include_router(
+    sentiment_router,
+    prefix="/sentiment",
+    tags=["情绪因子"]
 )
 
 api_v1_router.include_router(

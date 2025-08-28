@@ -543,7 +543,7 @@ class FactorDAO:
                 if existing_factor:
                     # 更新现有记录
                     existing_factor.factor_value = factor_value
-                    existing_factor.updated_at = datetime.now()
+                    existing_factor.updated_at = datetime.now()  # type: ignore
                 else:
                     # 创建新记录
                     new_factor = MarketFactor(

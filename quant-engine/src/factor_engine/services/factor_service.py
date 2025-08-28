@@ -552,11 +552,11 @@ class FactorService:
             factors_result = {}
             for factor_name in request.factors:
                 if factor_name == "total_market_cap":
-                    value = await self.market_calculator.calculate_total_market_cap(
+                    value = await self.market_calculator.calculate_market_cap(
                         request.stock_code, trade_date
                     )
                 elif factor_name == "tradable_market_cap":
-                    value = await self.market_calculator.calculate_tradable_market_cap(
+                    value = await self.market_calculator.calculate_float_market_cap(
                         request.stock_code, trade_date
                     )
                 elif factor_name == "turnover_rate":

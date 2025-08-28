@@ -445,3 +445,103 @@ class ErrorResponse(BaseFactorModel):
     timestamp: str = Field(
         default_factory=lambda: datetime.now().isoformat(), description="错误时间戳"
     )
+
+
+
+    confidence: float
+    news_count: int
+    calculation_date: str
+    start_date: str
+    end_date: str
+    volume_adjustment: float
+    calculation_time: str
+
+
+class BatchSentimentFactorRequest(BaseFactorModel):
+    """批量情绪因子计算请求模型"""
+
+    stock_codes: list[str] = Field(..., description="股票代码列表")
+    calculation_date: str = Field(..., description="计算日期，格式：YYYY-MM-DD")
+    days_back: int = Field(default=7, description="向前追溯天数")
+    use_model: bool = Field(default=True, description="是否使用深度学习模型")
+
+    @validator("stock_codes")
+    def validate_stock_codes(cls, v: list[str]) -> list[str]:
+        for code in v:
+            if not code.isdigit() and not (
+                code.startswith("SH") or code.startswith("SZ")
+            ):
+                raise ValueError(f"股票代码{code}格式不正确")
+        return v
+
+    @validator("calculation_date")
+    def validate_calculation_date(cls, v: str) -> str:
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError as e:
+            raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
+        return v
+
+    @validator("days_back")
+    def validate_days_back(cls, v: int) -> int:
+        if v <= 0 or v > 30:
+            raise ValueError("追溯天数必须在1-30之间")
+        return v
+
+
+class BatchSentimentFactorResponse(BaseFactorModel):
+    """批量情绪因子计算响应模型"""
+
+    calculation_date: str
+    total_stocks: int
+    successful_stocks: int
+    failed_stocks: int
+    results: list[SentimentFactorResponse]
+    errors: list[dict[str, str]] | None = None
+
+
+class SentimentTrendRequest(BaseFactorModel):
+    """情绪趋势查询请求模型"""
+
+    stock_code: str = Field(..., description="股票代码")
+    days: int = Field(default=30, description="查询天数")
+
+    @validator("stock_code")
+    def validate_stock_code(cls, v: str) -> str:
+        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+            raise ValueError("股票代码格式不正确")
+        return v
+
+    @validator("days")
+    def validate_days(cls, v: int) -> int:
+        if v <= 0 or v > 365:
+            raise ValueError("查询天数必须在1-365之间")
+        return v
+
+
+class SentimentTrendResponse(BaseFactorModel):
+    """情绪趋势查询响应模型"""
+
+    stock_code: str
+    period: str
+    daily_factors: list[dict[str, str | float]]
+    statistics: dict[str, str | float]
+
+
+class SentimentFactor(BaseFactorModel):
+    """情绪因子数据模型"""
+
+    id: int
+    stock_code: str
+    sentiment_factor: float
+    positive_score: float
+    negative_score: float
+    neutral_score: float
+    confidence: float
+    news_count: int
+    calculation_date: str
+    start_date: str
+    end_date: str
+    volume_adjustment: float
+    created_at: str
+    updated_at: str

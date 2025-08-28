@@ -1,5 +1,5 @@
 import uvicorn
-from src.app import app
+
 from src.config.settings import settings
 
 

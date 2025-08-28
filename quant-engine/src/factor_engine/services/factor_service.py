@@ -14,6 +14,7 @@ import pandas as pd
 from ...clients.data_collector_client import DataCollectorClient
 from ..calculators.fundamental import FundamentalFactorCalculator
 from ..calculators.market import MarketFactorCalculator
+from ..calculators.sentiment import SentimentFactorCalculator
 from ..calculators.technical import TechnicalFactorCalculator
 from ..dao.factor_dao import FactorDAO
 from ..models.schemas import (
@@ -23,6 +24,8 @@ from ..models.schemas import (
     BatchMarketFactorResponse,
     BatchTechnicalFactorRequest,
     BatchTechnicalFactorResponse,
+    BatchUnifiedFactorRequest,
+    BatchUnifiedFactorResponse,
     FundamentalFactorRequest,
     FundamentalFactorResponse,
     MarketFactorHistoryResponse,
@@ -31,6 +34,9 @@ from ..models.schemas import (
     TechnicalFactorHistoryResponse,
     TechnicalFactorRequest,
     TechnicalFactorResponse,
+    UnifiedFactorHistoryResponse,
+    UnifiedFactorRequest,
+    UnifiedFactorResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +60,7 @@ class FactorService:
         self.technical_calculator = TechnicalFactorCalculator()
         self.fundamental_calculator = FundamentalFactorCalculator(data_client)
         self.market_calculator = MarketFactorCalculator(data_client)
+        self.sentiment_calculator = SentimentFactorCalculator()
 
     async def calculate_technical_factors(
         self, request: TechnicalFactorRequest
@@ -726,3 +733,274 @@ class FactorService:
             logger.error(f"保存市场因子数据失败: {str(e)}")
             # 不抛出异常，避免影响计算流程
             pass
+
+    # ==================== 统一因子计算方法 ====================
+
+    async def calculate_all_factors(
+        self, request: UnifiedFactorRequest
+    ) -> UnifiedFactorResponse:
+        """计算所有类型的因子
+
+        Args:
+            request: 统一因子计算请求
+
+        Returns:
+            统一因子计算响应
+        """
+        try:
+            from datetime import datetime, timedelta
+            all_factors: dict[str, dict[str, float] | dict[str, float | dict[str, float]] | None] = {}
+            calculation_date = request.calculation_date or datetime.now().strftime("%Y-%m-%d")
+
+            # 计算技术因子
+            if "technical" in request.factor_types and request.technical_factors:
+                tech_request = TechnicalFactorRequest(
+                    stock_code=request.stock_code,
+                    factors=request.technical_factors,
+                    end_date=calculation_date,
+                )
+                tech_response = await self.calculate_technical_factors(tech_request)
+                # 技术因子可能包含嵌套字典
+                all_factors["technical_factors"] = tech_response.factors
+
+            # 计算基本面因子
+            if "fundamental" in request.factor_types and request.fundamental_factors:
+                fund_request = FundamentalFactorRequest(
+                    stock_code=request.stock_code,
+                    factors=request.fundamental_factors,
+                    period=request.period or calculation_date[:4],
+                )
+                fund_response = await self.calculate_fundamental_factors(fund_request)
+                # 基本面因子直接赋值
+                all_factors["fundamental_factors"] = fund_response.factors
+
+            # 计算市场因子
+            if "market" in request.factor_types and request.market_factors:
+                market_request = MarketFactorRequest(
+                    stock_code=request.stock_code,
+                    factors=request.market_factors,
+                    trade_date=calculation_date,
+                )
+                market_response = await self.calculate_market_factors(market_request)
+                # 市场因子直接赋值
+                all_factors["market_factors"] = market_response.factors
+
+            # 计算情绪因子
+            if "sentiment" in request.factor_types:
+                try:
+                    end_date = datetime.strptime(calculation_date, "%Y-%m-%d")
+                    start_date = end_date - timedelta(days=request.time_window)
+
+                    sentiment_data = await self.sentiment_calculator.calculate_stock_sentiment_factor(
+                        request.stock_code, start_date, end_date
+                    )
+
+                    # 提取情绪详情
+                    sentiment_details = sentiment_data.get("sentiment_details", {})
+                    all_factors["sentiment_factors"] = {
+                        "sentiment_factor": sentiment_data.get("sentiment_factor", 0.0),
+                        "positive_score": sentiment_details.get("positive_score", 0.0),
+                        "negative_score": sentiment_details.get("negative_score", 0.0),
+                        "neutral_score": sentiment_details.get("neutral_score", 0.0),
+                        "confidence": sentiment_details.get("confidence", 0.0),
+                        "news_count": sentiment_details.get("news_count", 0),
+                    }
+                except Exception as e:
+                    logger.warning(f"计算情绪因子失败: {str(e)}")
+                    # 情绪因子计算失败时不添加到all_factors中
+
+            # 构建计算摘要
+            calculation_summary: dict[str, str | int] = {
+                "total_factor_types": len([k for k, v in all_factors.items() if v is not None]),
+                "calculation_time": datetime.now().isoformat(),
+                "status": "success"
+            }
+
+            # 类型转换以匹配UnifiedFactorResponse的期望类型
+            technical_factors: dict[str, float | dict[str, float]] | None = None
+            fundamental_factors: dict[str, float] | None = None
+            market_factors: dict[str, float] | None = None
+            sentiment_factors: dict[str, float] | None = None
+
+            # 安全获取技术因子
+            tech_data = all_factors.get("technical_factors")
+            if isinstance(tech_data, dict):
+                technical_factors = tech_data  # type: ignore
+
+            # 安全获取基本面因子
+            fund_data = all_factors.get("fundamental_factors")
+            if isinstance(fund_data, dict) and all(isinstance(v, int | float) for v in fund_data.values()):
+                fundamental_factors = fund_data  # type: ignore
+
+            # 安全获取市场因子
+            market_data = all_factors.get("market_factors")
+            if isinstance(market_data, dict) and all(isinstance(v, int | float) for v in market_data.values()):
+                market_factors = market_data  # type: ignore
+
+            # 安全获取情绪因子
+            sentiment_factor_data = all_factors.get("sentiment_factors")
+            if isinstance(sentiment_factor_data, dict) and all(isinstance(v, int | float) for v in sentiment_factor_data.values()):
+                sentiment_factors = {k: float(v) for k, v in sentiment_factor_data.items() if isinstance(v, int | float)}
+
+            response = UnifiedFactorResponse(
+                stock_code=request.stock_code,
+                calculation_date=calculation_date,
+                technical_factors=technical_factors,
+                fundamental_factors=fundamental_factors,
+                market_factors=market_factors,
+                sentiment_factors=sentiment_factors,
+                calculation_summary=calculation_summary,
+            )
+
+            logger.info(
+                f"成功计算股票{request.stock_code}的所有因子类型: {list(all_factors.keys())}"
+            )
+            return response
+
+        except Exception as e:
+            logger.error(f"计算统一因子失败: {str(e)}")
+            raise
+
+    async def batch_calculate_all_factors(
+        self, request: BatchUnifiedFactorRequest
+    ) -> BatchUnifiedFactorResponse:
+        """批量计算所有类型的因子
+
+        Args:
+            request: 批量统一因子计算请求
+
+        Returns:
+            批量统一因子计算响应
+        """
+        calculation_date = request.calculation_date or datetime.now().strftime("%Y-%m-%d")
+        total_stocks = len(request.stock_codes)
+        successful_stocks = 0
+        failed_stocks = 0
+        results = {}
+        errors = {}
+
+        logger.info(f"开始批量计算所有因子，股票数量: {total_stocks}")
+
+        for stock_code in request.stock_codes:
+            try:
+                # 创建单个股票的计算请求
+                single_request = UnifiedFactorRequest(
+                    stock_code=stock_code,
+                    factor_types=request.factor_types,
+                    technical_factors=request.technical_factors,
+                    fundamental_factors=request.fundamental_factors,
+                    market_factors=request.market_factors,
+                    calculation_date=calculation_date,
+                    period=request.period,
+                    time_window=request.time_window,
+                )
+
+                # 计算所有因子
+                single_response = await self.calculate_all_factors(single_request)
+
+                # 记录成功结果
+                results[stock_code] = single_response
+                successful_stocks += 1
+
+            except Exception as e:
+                # 记录失败信息
+                error_msg = str(e)
+                errors[stock_code] = error_msg
+                failed_stocks += 1
+                logger.warning(f"股票{stock_code}计算失败: {error_msg}")
+
+        response = BatchUnifiedFactorResponse(
+            calculation_date=calculation_date,
+            total_stocks=total_stocks,
+            successful_stocks=successful_stocks,
+            failed_stocks=failed_stocks,
+            results=results,
+            errors=errors if errors else None,
+        )
+
+        logger.info(f"批量计算完成，成功: {successful_stocks}, 失败: {failed_stocks}")
+        return response
+
+    async def get_all_factors_history(
+        self,
+        stock_code: str,
+        start_date: str,
+        end_date: str,
+        technical_factors: list[str] | None = None,
+        fundamental_factors: list[str] | None = None,
+        market_factors: list[str] | None = None,
+    ) -> UnifiedFactorHistoryResponse:
+        """获取所有类型因子的历史数据
+
+        Args:
+            stock_code: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+            technical_factors: 技术因子列表
+            fundamental_factors: 基本面因子列表
+            market_factors: 市场因子列表
+
+        Returns:
+            统一因子历史数据响应
+        """
+        try:
+            # 初始化历史数据列表
+            technical_history: list[dict[str, str | float]] = []
+            fundamental_history: list[dict[str, str | float]] = []
+            market_history: list[dict[str, str | float]] = []
+            sentiment_history: list[dict[str, str | float]] = []
+
+            # 获取技术因子历史数据
+            if technical_factors:
+                for factor_name in technical_factors:
+                    tech_history = await self.get_technical_factor_history(
+                        stock_code, factor_name, start_date, end_date
+                    )
+                    if tech_history and tech_history.data:
+                        technical_history.extend(tech_history.data)
+
+            # 获取基本面因子历史数据
+            if fundamental_factors:
+                for factor_name in fundamental_factors:
+                    fund_history = await self.get_fundamental_factor_history(
+                        stock_code, factor_name, start_date, end_date
+                    )
+                    if fund_history:
+                        fundamental_history.extend(fund_history)
+
+            # 获取市场因子历史数据
+            if market_factors:
+                for factor_name in market_factors:
+                    market_hist = await self.get_market_factor_history(
+                        stock_code, factor_name, start_date, end_date
+                    )
+                    if market_hist and market_hist.data:
+                        market_history.extend(market_hist.data)
+
+            # 构建数据摘要
+            data_summary = {
+                "technical_count": len(technical_history),
+                "fundamental_count": len(fundamental_history),
+                "market_count": len(market_history),
+                "sentiment_count": len(sentiment_history),
+            }
+
+            response = UnifiedFactorHistoryResponse(
+                stock_code=stock_code,
+                start_date=start_date,
+                end_date=end_date,
+                technical_history=technical_history if technical_history else None,
+                fundamental_history=fundamental_history if fundamental_history else None,
+                market_history=market_history if market_history else None,
+                sentiment_history=sentiment_history if sentiment_history else None,
+                data_summary=data_summary,
+            )
+
+            logger.info(
+                f"成功获取股票{stock_code}的所有因子历史数据，时间范围: {start_date} - {end_date}"
+            )
+            return response
+
+        except Exception as e:
+            logger.error(f"获取统一因子历史数据失败: {str(e)}")
+            raise

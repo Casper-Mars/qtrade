@@ -545,3 +545,182 @@ class SentimentFactor(BaseFactorModel):
     volume_adjustment: float
     created_at: str
     updated_at: str
+
+
+# ==================== 统一因子计算相关模型 ====================
+
+
+class UnifiedFactorRequest(BaseFactorModel):
+    """统一因子计算请求模型"""
+
+    stock_code: str = Field(..., description="股票代码")
+    factor_types: list[str] = Field(
+        ["technical", "fundamental", "market", "sentiment"],
+        description="因子类型列表"
+    )
+    calculation_date: str | None = Field(
+        default=None, description="计算日期，格式：YYYY-MM-DD"
+    )
+    technical_factors: list[str] | None = Field(
+        default=["MA", "RSI", "MACD"], description="技术因子列表"
+    )
+    fundamental_factors: list[str] | None = Field(
+        default=["ROE", "ROA", "GROSS_MARGIN"], description="基本面因子列表"
+    )
+    market_factors: list[str] | None = Field(
+        default=["total_market_cap", "turnover_rate"], description="市场因子列表"
+    )
+    period: str | None = Field(
+        default=None, description="基本面因子报告期，格式：2023Q4或2023"
+    )
+    time_window: int = Field(default=7, description="情绪因子时间窗口（天）")
+
+    @validator("stock_code")
+    def validate_stock_code(cls, v: str) -> str:
+        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+            raise ValueError("股票代码格式不正确")
+        return v
+
+    @validator("factor_types")
+    def validate_factor_types(cls, v: list[str]) -> list[str]:
+        valid_types = {"technical", "fundamental", "market", "sentiment"}
+        for factor_type in v:
+            if factor_type not in valid_types:
+                raise ValueError(f"不支持的因子类型：{factor_type}")
+        return v
+
+    @validator("calculation_date")
+    def validate_calculation_date(cls, v: str | None) -> str | None:
+        if v is not None:
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError as e:
+                raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
+        return v
+
+
+class UnifiedFactorResponse(BaseFactorModel):
+    """统一因子计算响应模型"""
+
+    stock_code: str
+    calculation_date: str
+    technical_factors: dict[str, float | dict[str, float]] | None = None
+    fundamental_factors: dict[str, float] | None = None
+    market_factors: dict[str, float] | None = None
+    sentiment_factors: dict[str, float] | None = None
+    calculation_summary: dict[str, str | int]
+
+
+class BatchUnifiedFactorRequest(BaseFactorModel):
+    """批量统一因子计算请求模型"""
+
+    stock_codes: list[str] = Field(..., description="股票代码列表")
+    factor_types: list[str] = Field(
+        ["technical", "fundamental", "market", "sentiment"],
+        description="因子类型列表"
+    )
+    calculation_date: str | None = Field(
+        default=None, description="计算日期，格式：YYYY-MM-DD"
+    )
+    technical_factors: list[str] | None = Field(
+        default=["MA", "RSI", "MACD"], description="技术因子列表"
+    )
+    fundamental_factors: list[str] | None = Field(
+        default=["ROE", "ROA", "GROSS_MARGIN"], description="基本面因子列表"
+    )
+    market_factors: list[str] | None = Field(
+        default=["total_market_cap", "turnover_rate"], description="市场因子列表"
+    )
+    period: str | None = Field(
+        default=None, description="基本面因子报告期，格式：2023Q4或2023"
+    )
+    time_window: int = Field(default=7, description="情绪因子时间窗口（天）")
+    parallel: bool = Field(default=True, description="是否并行计算")
+
+    @validator("stock_codes")
+    def validate_stock_codes(cls, v: list[str]) -> list[str]:
+        for code in v:
+            if not code.isdigit() and not (
+                code.startswith("SH") or code.startswith("SZ")
+            ):
+                raise ValueError(f"股票代码{code}格式不正确")
+        return v
+
+    @validator("factor_types")
+    def validate_factor_types(cls, v: list[str]) -> list[str]:
+        valid_types = {"technical", "fundamental", "market", "sentiment"}
+        for factor_type in v:
+            if factor_type not in valid_types:
+                raise ValueError(f"不支持的因子类型：{factor_type}")
+        return v
+
+    @validator("calculation_date")
+    def validate_calculation_date(cls, v: str | None) -> str | None:
+        if v is not None:
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError as e:
+                raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
+        return v
+
+
+class BatchUnifiedFactorResponse(BaseFactorModel):
+    """批量统一因子计算响应模型"""
+
+    calculation_date: str
+    total_stocks: int
+    successful_stocks: int
+    failed_stocks: int
+    results: dict[str, UnifiedFactorResponse]
+    errors: dict[str, str] | None = None
+    performance_metrics: dict[str, float | int] | None = None
+
+
+class UnifiedFactorHistoryRequest(BaseFactorModel):
+    """统一因子历史数据请求模型"""
+
+    stock_code: str = Field(..., description="股票代码")
+    factor_types: list[str] = Field(
+        ["technical", "fundamental", "market", "sentiment"],
+        description="因子类型列表"
+    )
+    start_date: str = Field(..., description="开始日期，格式：YYYY-MM-DD")
+    end_date: str = Field(..., description="结束日期，格式：YYYY-MM-DD")
+    factor_names: dict[str, list[str]] | None = Field(
+        default=None, description="各类型因子名称列表"
+    )
+
+    @validator("stock_code")
+    def validate_stock_code(cls, v: str) -> str:
+        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+            raise ValueError("股票代码格式不正确")
+        return v
+
+    @validator("factor_types")
+    def validate_factor_types(cls, v: list[str]) -> list[str]:
+        valid_types = {"technical", "fundamental", "market", "sentiment"}
+        for factor_type in v:
+            if factor_type not in valid_types:
+                raise ValueError(f"不支持的因子类型：{factor_type}")
+        return v
+
+    @validator("start_date", "end_date")
+    def validate_dates(cls, v: str) -> str:
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError as e:
+            raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
+        return v
+
+
+class UnifiedFactorHistoryResponse(BaseFactorModel):
+    """统一因子历史数据响应模型"""
+
+    stock_code: str
+    start_date: str
+    end_date: str
+    technical_history: list[dict[str, str | float]] | None = None
+    fundamental_history: list[dict[str, str | float]] | None = None
+    market_history: list[dict[str, str | float]] | None = None
+    sentiment_history: list[dict[str, str | float]] | None = None
+    data_summary: dict[str, int]

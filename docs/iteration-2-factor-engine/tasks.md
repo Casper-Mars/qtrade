@@ -319,7 +319,7 @@
 ### 模块E：统一因子计算模块
 
 #### 功能点E1：统一因子计算功能
-- [ ] **任务M005. 实现统一因子计算功能（完整端到端实现）**
+- [x] **任务M005. 实现统一因子计算功能（完整端到端实现）**
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -371,28 +371,24 @@
         end
     ```
   - **实现步骤**：
-    1. 实现统一因子计算API接口层（参考design_backend.md第2.5.3节）
+    1. 在现有FactorService中添加统一因子计算方法
+       * 添加 `calculate_all_factors()` 方法：计算指定股票的所有类型因子
+       * 添加 `batch_calculate_all_factors()` 方法：批量计算多股票的所有因子
+       * 添加 `get_all_factors_history()` 方法：查询股票的完整因子历史数据
+       * 实现选择性因子类型计算（可指定计算哪些类型的因子）
+    2. 实现统一因子计算API接口层
        * 路由定义：POST /api/v1/factors/unified/calculate
        * POST /api/v1/factors/unified/batch-calculate（批量计算）
        * GET /api/v1/factors/unified/history（历史查询）
-       * 支持选择性因子类型计算和自定义配置参数
-    2. 实现统一因子服务（UnifiedFactorService）（参考design_backend.md第2.5.4节）
-       * 统一的因子计算入口和协调逻辑
-       * 集成所有类型的因子计算器
-       * 实现计算结果聚合和数据持久化
-       * 错误处理和部分失败容错机制
-    3. 实现因子聚合器（FactorAggregator）
-       * 并行执行多类型因子计算
-       * 计算结果合并和格式化
-       * 计算性能监控和优化
-    4. 实现缓存管理器（CacheManager）
-       * 完整因子数据缓存策略
-       * 部分因子缓存和增量更新
-       * 多层缓存架构和失效策略
-    5. 集成数据访问层和性能优化
-       * 批量数据保存和查询优化
-       * 并发控制和资源管理
-       * 计算超时和限流机制
+       * 创建对应的请求/响应模型
+    3. 优化并行计算和错误处理
+       * 在FactorService中实现并行调用各类型因子计算器
+       * 添加部分失败容错机制（某个类型计算失败不影响其他类型）
+       * 实现计算结果聚合和统一格式化
+    4. 添加缓存优化
+       * 利用现有的Redis缓存，添加完整因子数据缓存
+       * 实现增量缓存更新策略
+       * 缓存失效和刷新机制
   - _Requirements: 统一因子计算需求_
   - _Design Reference: design_backend.md 第2.5节_
   - _前置条件：任务M001、M002、M003、M004完成_

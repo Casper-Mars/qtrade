@@ -16,8 +16,6 @@ class NLPModelManager:
 
     支持加载和管理多种中文金融BERT模型：
     - 熵简科技的FinBERT2-large
-    - FinBERT_v1
-    - BBT-FinT5
     """
 
     _instance = None
@@ -26,18 +24,8 @@ class NLPModelManager:
     # 支持的模型配置
     SUPPORTED_MODELS = {
         "finbert2-large": {
-            "model_name": "IDEA-CCNL/Erlangshen-FinBERT2-large",
+            "model_name": "valuesimplex-ai-lab/FinBERT2-large",
             "description": "熵简科技FinBERT2-large模型",
-            "max_length": 512
-        },
-        "finbert-v1": {
-            "model_name": "ProsusAI/finbert",
-            "description": "FinBERT v1模型",
-            "max_length": 512
-        },
-        "bbt-fint5": {
-            "model_name": "Langboat/mengzi-bert-base-fin",
-            "description": "BBT-FinT5模型",
             "max_length": 512
         }
     }

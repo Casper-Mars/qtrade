@@ -777,33 +777,272 @@ class FundamentalFactorDAO:
         return await self.mysql_dao.query_factors("fundamental_factors", conditions, "period ASC")
 ```
 
-### 2.4 市场因子计算模块
+### 2.3 市场因子计算模块
 
-#### 2.4.1 模块职责
-- 计算市值因子（总市值、流通市值）
-- 计算流动性因子（换手率、成交量比率）
-- 计算波动率因子（价格波动率、收益率波动率）
-- 计算动量因子（价格动量、收益率动量）
+#### 2.3.1 功能概述
+市场因子计算模块负责计算股票的市场表现相关因子，包括市值因子、流动性因子、波动率因子和动量因子。该模块通过分析股票的价格、成交量、市值等市场数据，为量化交易策略提供市场维度的因子支持。
 
-#### 2.3.2 核心接口设计
+#### 2.3.2 业务流程
 
+```mermaid
+sequenceDiagram
+    participant Client as 客户端
+    participant API as 市场因子API
+    participant Service as 因子服务
+    participant Calculator as 市场因子计算器
+    participant DataClient as 数据客户端
+    participant DAO as 数据访问层
+    participant Cache as Redis缓存
+    participant DB as MySQL数据库
+    
+    Client->>API: POST /api/v1/market/calculate
+    API->>API: 参数验证
+    API->>Service: 调用因子计算服务
+    
+    Service->>Cache: 检查缓存
+    alt 缓存命中
+        Cache-->>Service: 返回缓存结果
+        Service-->>API: 返回计算结果
+    else 缓存未命中
+        Service->>Calculator: 执行因子计算
+        
+        Calculator->>DataClient: 获取股票基础数据
+        DataClient->>DataClient: 调用data-collector股票API
+        DataClient-->>Calculator: 返回股票数据
+        
+        Calculator->>Calculator: 计算市值因子
+        Calculator->>Calculator: 计算流动性因子
+        Calculator->>Calculator: 计算波动率因子
+        Calculator->>Calculator: 计算动量因子
+        Calculator-->>Service: 返回计算结果
+        
+        Service->>DAO: 保存计算结果
+        DAO->>DB: 持久化到数据库
+        DAO->>Cache: 更新缓存
+        
+        Service-->>API: 返回计算结果
+    end
+    
+    API-->>Client: 响应计算结果
+```
+
+#### 2.3.3 API接口设计
+
+**计算市场因子**
+```http
+POST /api/v1/market/calculate
+Content-Type: application/json
+
+{
+  "stock_code": "000001",
+  "trade_date": "2023-10-15",
+  "factors": ["market_cap", "turnover_rate", "volatility", "momentum"],
+  "period": 20
+}
+```
+
+**响应格式**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "stock_code": "000001",
+    "trade_date": "2023-10-15",
+    "market_factors": {
+      "total_market_cap": 1250000000.0,
+      "float_market_cap": 875000000.0,
+      "turnover_rate": 0.025,
+      "volume_ratio": 1.35,
+      "price_volatility": 0.032,
+      "return_volatility": 0.028,
+      "price_momentum": 0.15,
+      "return_momentum": 0.12
+    },
+    "calculation_period": 20,
+    "data_quality": {
+      "completeness": 0.98,
+      "reliability": 0.95
+    }
+  }
+}
+```
+
+**批量计算市场因子**
+```http
+POST /api/v1/market/batch-calculate
+Content-Type: application/json
+
+{
+  "stock_codes": ["000001", "000002", "600000"],
+  "trade_date": "2023-10-15",
+  "period": 20
+}
+```
+
+**查询历史市场因子**
+```http
+GET /api/v1/market/history?stock_code=000001&start_date=2023-10-01&end_date=2023-10-15&factors=market_cap,turnover_rate
+```
+
+#### 2.3.4 核心组件设计
+
+**市场因子计算器**
 ```python
 class MarketFactorCalculator:
-    async def calculate_market_cap(self, stock_code: str, trade_date: str) -> float:
-        """计算市值"""
+    """市场因子计算器 - 负责计算各类市场相关因子"""
+    
+    def __init__(self, data_client: DataCollectorClient):
+        self.data_client = data_client
+        self.cache_manager = CacheManager()
+    
+    async def calculate_market_cap_factors(self, stock_code: str, trade_date: str) -> Dict[str, float]:
+        """计算市值因子
+        
+        Returns:
+            Dict包含: total_market_cap, float_market_cap, market_cap_ratio
+        """
         pass
     
-    async def calculate_turnover_rate(self, stock_code: str, period: int) -> float:
-        """计算换手率"""
+    async def calculate_liquidity_factors(self, stock_code: str, trade_date: str, period: int = 20) -> Dict[str, float]:
+        """计算流动性因子
+        
+        Returns:
+            Dict包含: turnover_rate, volume_ratio, avg_volume, recent_volume
+        """
+        pass
+    
+    async def calculate_volatility_factors(self, stock_code: str, trade_date: str, period: int = 20) -> Dict[str, float]:
+        """计算波动率因子
+        
+        Returns:
+            Dict包含: price_volatility, return_volatility, price_range, return_range
+        """
+        pass
+    
+    async def calculate_momentum_factors(self, stock_code: str, trade_date: str, period: int = 20) -> Dict[str, float]:
+        """计算动量因子
+        
+        Returns:
+            Dict包含: price_momentum, return_momentum, rsi, momentum_strength
+        """
+        pass
+    
+    def _calculate_volatility(self, values: List[float]) -> float:
+        """计算波动率工具方法"""
+        pass
+    
+    def _calculate_rsi(self, price_data: List[Dict], period: int = 14) -> float:
+        """计算RSI工具方法"""
         pass
 ```
 
-### 2.3 消息面因子计算功能
+#### 2.3.5 数据模型
 
-#### 2.3.1 功能概述
+**市场因子数据模型**
+```python
+from dataclasses import dataclass
+from typing import Optional, Dict, Any, List
+from datetime import datetime
+
+@dataclass
+class MarketFactorData:
+    """市场因子数据模型"""
+    stock_code: str
+    trade_date: str
+    calculation_period: int
+    
+    # 市值因子
+    total_market_cap: float
+    float_market_cap: float
+    market_cap_ratio: float
+    
+    # 流动性因子
+    turnover_rate: float
+    volume_ratio: float
+    avg_volume: float
+    recent_volume: float
+    
+    # 波动率因子
+    price_volatility: float
+    return_volatility: float
+    price_range: float
+    return_range: float
+    
+    # 动量因子
+    price_momentum: float
+    return_momentum: float
+    rsi: float
+    momentum_strength: float
+    
+    # 数据质量
+    data_completeness: float
+    data_reliability: float
+    
+    # 元数据
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        pass
+
+@dataclass
+class MarketFactorRequest:
+    """市场因子计算请求模型"""
+    stock_code: str
+    trade_date: str
+    factors: List[str]
+    period: int = 20
+    
+    def validate(self) -> bool:
+        """验证请求参数"""
+        pass
+```
+
+#### 2.3.6 数据访问层
+
+**市场因子数据访问对象**
+```python
+class MarketFactorDAO:
+    """市场因子数据访问层"""
+    
+    def __init__(self, mysql_client: MySQLClient, redis_client: RedisClient):
+        self.mysql = mysql_client
+        self.redis = redis_client
+        self.cache_ttl = 3600
+    
+    async def save_market_factor(self, factor_data: MarketFactorData) -> bool:
+        """保存市场因子数据到MySQL和Redis"""
+        pass
+    
+    async def get_market_factor(self, stock_code: str, trade_date: str, period: int) -> Optional[MarketFactorData]:
+        """获取单个市场因子数据，优先从缓存获取"""
+        pass
+    
+    async def get_market_factors_batch(self, stock_codes: List[str], trade_date: str, period: int) -> List[MarketFactorData]:
+        """批量获取市场因子数据"""
+        pass
+    
+    async def get_market_factor_history(self, stock_code: str, start_date: str, end_date: str, period: int) -> List[MarketFactorData]:
+        """获取历史市场因子数据"""
+        pass
+    
+    def _row_to_market_factor(self, row: Dict[str, Any]) -> MarketFactorData:
+        """数据库行转换为MarketFactorData对象"""
+        pass
+    
+    def _dict_to_market_factor(self, data_dict: Dict[str, Any]) -> MarketFactorData:
+        """字典转换为MarketFactorData对象"""
+        pass
+```
+
+### 2.4 消息面因子计算功能
+
+#### 2.4.1 功能概述
 消息面因子计算功能通过分析新闻、公告、政策等多源信息，计算股票的消息面情绪因子。该功能整合文本情绪分析、影响权重评估和多源数据融合，为量化交易提供消息面维度的决策支持。
 
-#### 2.3.2 业务流程
+#### 2.4.2 业务流程
 
 ```mermaid
 sequenceDiagram
@@ -853,7 +1092,7 @@ sequenceDiagram
     API-->>Client: 响应计算结果
 ```
 
-#### 2.3.3 API接口设计
+#### 2.4.3 API接口设计
 
 **计算消息面因子**
 ```http
@@ -913,7 +1152,7 @@ Content-Type: application/json
 GET /api/v1/sentiment/history?stock_code=000001&start_date=2023-10-01&end_date=2023-10-15
 ```
 
-#### 2.3.4 核心组件设计
+#### 2.4.4 核心组件设计
 
 **新闻情绪因子计算器**
 ```python
@@ -925,67 +1164,15 @@ class SentimentFactorCalculator:
     
     async def calculate_news_sentiment(self, stock_code: str, date: str, time_window: int = 7) -> float:
         """计算新闻情绪因子"""
-        # 1. 从data-collector获取新闻原始文本数据
-        news_data = await self.data_client.get_news_by_stock(
-            stock_code=stock_code,
-            start_date=date - timedelta(days=time_window),
-            end_date=date
-        )
-        
-        if not news_data:
-            return 0.5  # 中性情绪
-        
-        total_score = 0.0
-        total_weight = 0.0
-        
-        for news in news_data:
-            # 2. 使用本地NLP模型进行情绪识别
-            sentiment_result = await self.sentiment_analyzer.analyze_sentiment(
-                text=news['content'],
-                title=news['title']
-            )
-            
-            # 3. 计算权重
-            time_weight = self._calculate_time_weight(news['publish_time'], date)
-            media_weight = self._calculate_media_weight(news['source'])
-            confidence_weight = sentiment_result['confidence']
-            
-            # 4. 计算加权得分
-            weighted_score = (
-                sentiment_result['sentiment_score'] * 
-                confidence_weight * 
-                time_weight * 
-                media_weight
-            )
-            
-            total_score += weighted_score
-            total_weight += confidence_weight * time_weight * media_weight
-        
-        # 5. 归一化处理
-        if total_weight > 0:
-            return total_score / total_weight
-        else:
-            return 0.5  # 中性情绪
+        pass
     
     def _calculate_time_weight(self, publish_time: datetime, current_date: str) -> float:
         """计算时间权重，越新的新闻权重越高"""
-        current_dt = datetime.strptime(current_date, '%Y-%m-%d')
-        days_diff = (current_dt - publish_time).days
-        return max(0.1, 1.0 - days_diff * 0.1)  # 每天衰减10%
+        pass
     
     def _calculate_media_weight(self, source: str) -> float:
         """计算媒体权重"""
-        # 根据媒体影响力设置权重
-        media_weights = {
-            '新华社': 1.0,
-            '人民日报': 1.0,
-            '央视新闻': 0.9,
-            '财经网': 0.8,
-            '新浪财经': 0.7,
-            '腾讯财经': 0.7,
-            '其他': 0.5
-        }
-        return media_weights.get(source, 0.5)
+        pass
 ```
 
 **情绪分析器**
@@ -996,40 +1183,11 @@ class SentimentAnalyzer:
         
     async def analyze_sentiment(self, text: str, title: str = None) -> Dict[str, float]:
         """分析文本情绪，返回情绪分数和置信度"""
-        # 1. 组合标题和正文
-        full_text = text
-        if title:
-            # 标题权重更高，放在前面
-            full_text = f"{title} {text}"
-        
-        # 2. 使用FinBERT模型进行情绪分析
-        sentiment_result = await self.model_manager.predict_sentiment(full_text)
-        
-        # 3. 直接返回FinBERT的分析结果
-        final_score = sentiment_result['score']
-        confidence = sentiment_result['confidence']
-        
-        return {
-            'sentiment_score': final_score,
-            'confidence': confidence
-        }
+        pass
     
     def _lexicon_based_analysis(self, text: str) -> float:
         """基于词典的情绪分析"""
-        words = self.text_processor.segment(text)
-        positive_score = 0.0
-        negative_score = 0.0
-        
-        for i, word in enumerate(words):
-            # 检查积极词汇
-            if word in self.positive_words:
-                degree = self._get_degree_modifier(words, i)
-                positive_score += self.positive_words[word] * degree
-            
-            # 检查消极词汇
-            if word in self.negative_words:
-                degree = self._get_degree_modifier(words, i)
-                negative_score += self.negative_words[word] * degree
+        pass
         
         # 归一化到[0,1]范围
         total_score = positive_score + negative_score
@@ -1084,67 +1242,19 @@ class NLPModelManager:
     _initialized = False
     
     def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+        pass
     
     def __init__(self):
-        if not self._initialized:
-            self.model = None
-            self.tokenizer = None
-            self._load_model()
-            self._initialized = True
+        self.model = None
+        self.tokenizer = None
     
     def _load_model(self):
         """加载预训练的情绪分析模型"""
-        try:
-            from transformers import AutoTokenizer, AutoModelForSequenceClassification
-            import torch
-            
-            # 使用FinBERT金融领域预训练模型
-            model_name = "ProsusAI/finbert"
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
-            self.model.eval()
-        except Exception as e:
-            logger.error(f"Failed to load NLP model: {e}")
-            # 降级到基于词典的方法
-            self.model = None
-            self.tokenizer = None
+        pass
     
     async def predict_sentiment(self, text: str) -> Dict[str, float]:
         """预测文本情绪"""
-        if self.model is None or self.tokenizer is None:
-            # 模型加载失败，返回中性结果
-            return {'score': 0.5, 'confidence': 0.5}
-        
-        try:
-            # 文本编码
-            inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
-            
-            # 模型预测
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
-            
-            # 假设模型输出：[negative, neutral, positive]
-            negative_prob = predictions[0][0].item()
-            neutral_prob = predictions[0][1].item()
-            positive_prob = predictions[0][2].item()
-            
-            # 计算情绪分数 [0,1]，0.5为中性
-            sentiment_score = positive_prob / (positive_prob + negative_prob) if (positive_prob + negative_prob) > 0 else 0.5
-            
-            # 置信度为最大概率值
-            confidence = max(negative_prob, neutral_prob, positive_prob)
-            
-            return {
-                'score': sentiment_score,
-                'confidence': confidence
-            }
-        except Exception as e:
-            logger.error(f"Sentiment prediction failed: {e}")
-            return {'score': 0.5, 'confidence': 0.5}
+        pass
 ```
 
 **因子服务层**
@@ -1170,7 +1280,7 @@ class SentimentFactorService:
         pass
 ```
 
-#### 2.3.5 数据模型
+#### 2.4.5 数据模型
 
 **数据库表结构**
 ```sql
@@ -1216,7 +1326,7 @@ class SentimentFactor(BaseModel):
     updated_at: datetime
 ```
 
-#### 2.3.6 数据访问层
+#### 2.4.6 数据访问层
 
 ```python
 class SentimentFactorDAO:

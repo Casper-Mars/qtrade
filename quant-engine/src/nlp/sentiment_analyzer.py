@@ -31,43 +31,41 @@ class SentimentAnalyzer:
         """
         if not text:
             return ""
-        
+
         # 简单的空白字符规范化
         text = re.sub(r'\s+', ' ', text)
         text = text.strip()
-        
+
         return text
 
 
 
 
 
-    async def analyze_sentiment(self, text: str, title: str = None) -> dict[str, float]:
+    async def analyze_sentiment(self, text: str, title: str | None = None) -> dict[str, float]:
         """分析文本情绪，返回情绪分数和置信度
-        
+
         根据技术方案文档要求，主要使用NLP模型进行情绪分析
-        
+
         Args:
             text: 待分析文本
             title: 可选的标题文本
-            
+
         Returns:
             Dict: 情绪分析结果
             {
                 "positive": 0.7,    # 积极情绪概率
-                "negative": 0.2,    # 消极情绪概率 
+                "negative": 0.2,    # 消极情绪概率
                 "neutral": 0.1,     # 中性情绪概率
                 "confidence": 0.85, # 预测置信度
-                "model_used": "entropy_finbert2"
             }
         """
         if not text:
             return {
                 "positive": 0.0,
-                "negative": 0.0, 
+                "negative": 0.0,
                 "neutral": 1.0,
-                "confidence": 1.0,
-                "model_used": "none"
+                "confidence": 1.0
             }
 
         # 文本预处理
@@ -82,8 +80,7 @@ class SentimentAnalyzer:
                 "positive": 0.0,
                 "negative": 0.0,
                 "neutral": 1.0,
-                "confidence": 1.0,
-                "model_used": "none"
+                "confidence": 1.0
             }
 
         # 确保模型已加载
@@ -94,25 +91,20 @@ class SentimentAnalyzer:
 
         # 使用NLP模型进行情绪分析
         model_result = self.model_manager.predict_sentiment(processed_text)
-        
+
         # 提取情绪分数
         positive = model_result.get("positive", 0.0)
         negative = model_result.get("negative", 0.0)
         neutral = model_result.get("neutral", 0.0)
-        
+
         # 计算置信度（最高情绪分数）
         confidence = max(positive, negative, neutral)
-        
-        # 获取当前模型信息
-        model_info = self.model_manager.get_model_info()
-        current_model = model_info.get("current_model", "unknown")
-        
+
         return {
             "positive": positive,
             "negative": negative,
             "neutral": neutral,
-            "confidence": confidence,
-            "model_used": current_model
+            "confidence": confidence
         }
 
     async def batch_analyze(self, texts: list[str]) -> list[dict[str, float]]:
@@ -136,8 +128,7 @@ class SentimentAnalyzer:
                     "positive": 0.0,
                     "negative": 0.0,
                     "neutral": 1.0,
-                    "confidence": 0.0,
-                    "model_used": "error"
+                    "confidence": 0.0
                 })
 
         return results

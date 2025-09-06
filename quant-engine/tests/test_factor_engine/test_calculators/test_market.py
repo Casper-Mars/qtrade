@@ -3,13 +3,14 @@
 测试市场因子计算器的各种功能
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timedelta
-import numpy as np
+from unittest.mock import AsyncMock
 
-from src.factor_engine.calculators.market import MarketFactorCalculator
+import numpy as np
+import pytest
+
 from src.clients.data_collector_client import DataCollectorClient
+from src.factor_engine.calculators.market import MarketFactorCalculator
 from src.utils.exceptions import DataNotFoundError
 
 
@@ -20,7 +21,7 @@ class TestMarketFactorCalculator:
     def mock_data_client(self):
         """创建模拟数据客户端"""
         client = AsyncMock(spec=DataCollectorClient)
-        
+
         # 模拟当日行情数据（包含股本信息）
         current_data = {
             "close": 10.0,
@@ -29,7 +30,7 @@ class TestMarketFactorCalculator:
             "total_share": 1000000,  # 100万万股（10亿股）
             "float_share": 800000,   # 80万万股（8亿股）
         }
-        
+
         # 模拟历史数据
         historical_data = []
         for i in range(30):
@@ -40,7 +41,7 @@ class TestMarketFactorCalculator:
                 "volume": np.random.randint(10000000, 100000000),
                 "amount": np.random.randint(100000000, 1000000000),
             })
-        
+
         # 为不同的调用配置不同的返回值
         def mock_get_stock_data(stock_code, start_date, end_date):
             # 如果是单日查询，返回当日数据
@@ -49,9 +50,9 @@ class TestMarketFactorCalculator:
             # 如果是历史数据查询，返回历史数据
             else:
                 return historical_data
-        
+
         client.get_stock_data.side_effect = mock_get_stock_data
-        
+
         return client
 
     @pytest.fixture
@@ -63,7 +64,7 @@ class TestMarketFactorCalculator:
     async def test_calculate_factors_single_factor(self, calculator):
         """测试单个因子计算"""
         result = await calculator.calculate_factors("000001", ["MARKET_CAP"], "2024-01-15")
-        
+
         assert "MARKET_CAP" in result
         assert isinstance(result["MARKET_CAP"], float)
         assert result["MARKET_CAP"] > 0
@@ -80,10 +81,10 @@ class TestMarketFactorCalculator:
                 "volume": 50000,         # 手
             }
         ]
-        
+
         factors = ["MARKET_CAP", "FLOAT_MARKET_CAP"]
         result = await calculator.calculate_factors("000001", factors, "2024-01-15")
-        
+
         for factor in factors:
             assert factor in result
             assert isinstance(result[factor], float)
@@ -99,7 +100,7 @@ class TestMarketFactorCalculator:
     async def test_calculate_market_cap_normal(self, calculator):
         """测试正常情况下的总市值计算"""
         result = await calculator.calculate_market_cap("000001", "2024-01-15")
-        
+
         # 总市值 = 收盘价 * 总股本 = 10.0 * 1000000 = 10000000万元
         expected_market_cap = 10.0 * 1000000  # 价格 * 总股本(万股) = 1000万万元
         assert result == expected_market_cap
@@ -110,7 +111,7 @@ class TestMarketFactorCalculator:
     async def test_calculate_float_market_cap_normal(self, calculator):
         """测试正常情况下的流通市值计算"""
         result = await calculator.calculate_float_market_cap("000001", "2024-01-15")
-        
+
         # 流通市值 = 流通股本 × 股价 = 8亿 × 10元 = 80亿
         expected_float_market_cap = 10.0 * 800000  # 价格 * 流通股本(万股) = 800万万元
         assert result == expected_float_market_cap
@@ -128,7 +129,7 @@ class TestMarketFactorCalculator:
                 "volume": 50000 + i * 1000,  # 递增的成交量
                 "float_share": 800000,  # 流通股本（万股）
             })
-        
+
         # 为历史数据查询设置不同的返回值
         def mock_get_data(stock_code, start_date, end_date):
             if start_date == end_date:
@@ -139,11 +140,11 @@ class TestMarketFactorCalculator:
                 }]
             else:
                 return historical_data
-        
+
         mock_data_client.get_stock_data.side_effect = mock_get_data
-        
+
         result = await calculator.calculate_turnover_rate("000001", "2024-01-15")
-        
+
         assert result is not None
         assert isinstance(result, float)
         assert result > 0
@@ -152,7 +153,7 @@ class TestMarketFactorCalculator:
     async def test_calculate_volume_ratio_normal(self, calculator):
         """测试正常情况下的成交量比率计算"""
         result = await calculator.calculate_volume_ratio("000001", "2024-01-15")
-        
+
         assert result is not None
         assert isinstance(result, float)
         assert result > 0
@@ -161,7 +162,7 @@ class TestMarketFactorCalculator:
     async def test_calculate_price_volatility_normal(self, calculator):
         """测试正常情况下的价格波动率计算"""
         result = await calculator.calculate_price_volatility("000001", "2024-01-15")
-        
+
         assert result is not None
         assert isinstance(result, float)
         assert result >= 0
@@ -170,7 +171,7 @@ class TestMarketFactorCalculator:
     async def test_calculate_return_volatility_normal(self, calculator):
         """测试正常情况下的收益率波动率计算"""
         result = await calculator.calculate_return_volatility("000001", "2024-01-15")
-        
+
         assert result is not None
         assert isinstance(result, float)
         assert result >= 0
@@ -179,7 +180,7 @@ class TestMarketFactorCalculator:
     async def test_calculate_price_momentum_normal(self, calculator):
         """测试正常情况下的价格动量计算"""
         result = await calculator.calculate_price_momentum("000001", "2024-01-15")
-        
+
         assert result is not None
         assert isinstance(result, float)
 
@@ -187,7 +188,7 @@ class TestMarketFactorCalculator:
     async def test_calculate_return_momentum_normal(self, calculator):
         """测试正常情况下的收益率动量计算"""
         result = await calculator.calculate_return_momentum("000001", "2024-01-15")
-        
+
         assert result is not None
         assert isinstance(result, float)
 
@@ -203,9 +204,9 @@ class TestMarketFactorCalculator:
                 "total_share": 0,  # 总股本为0
                 "float_share": 0,  # 流通股本为0
             }]
-        
+
         mock_data_client.get_stock_data.side_effect = mock_zero_shares
-        
+
         # 零股本会计算出0.0的市值 (10.0 * 0 = 0.0)
         result = await calculator.calculate_market_cap("000001", "2024-01-15")
         assert result == 0.0
@@ -221,7 +222,7 @@ class TestMarketFactorCalculator:
                 "volume": 0,  # 成交量为0
                 "float_share": 800000,  # 流通股本（万股）
             })
-        
+
         def mock_get_data(stock_code, start_date, end_date):
             if start_date == end_date:
                 return [{
@@ -231,9 +232,9 @@ class TestMarketFactorCalculator:
                 }]
             else:
                 return historical_data
-        
+
         mock_data_client.get_stock_data.side_effect = mock_get_data
-        
+
         turnover_rate = await calculator.calculate_turnover_rate("000001", "2024-01-15")
         assert turnover_rate == 0.0
 
@@ -249,18 +250,18 @@ class TestMarketFactorCalculator:
                 "volume": 50000000,
                 "amount": 500000000,
             })
-        
+
         mock_data_client.get_stock_data.side_effect = lambda stock_code, start_date, end_date: limited_data
-        
-        with pytest.raises(Exception):
+
+        with pytest.raises((ValueError, RuntimeError)):
             await calculator.calculate_price_volatility("000001", "2024-01-15")
 
     @pytest.mark.asyncio
     async def test_edge_case_no_historical_data(self, calculator, mock_data_client):
         """测试无历史数据的边界情况"""
         mock_data_client.get_stock_data.side_effect = lambda stock_code, start_date, end_date: []
-        
-        with pytest.raises(Exception):
+
+        with pytest.raises((ValueError, RuntimeError)):
             await calculator.calculate_price_volatility("000001", "2024-01-15")
 
     @pytest.mark.asyncio
@@ -276,9 +277,9 @@ class TestMarketFactorCalculator:
                 "volume": 50000000,
                 "amount": 500000000,
             })
-        
+
         mock_data_client.get_stock_data.side_effect = lambda stock_code, start_date, end_date: extreme_data
-        
+
         result = await calculator.calculate_price_volatility("000001", "2024-01-15")
         assert result > 0  # 应该有较高的波动率
         assert isinstance(result, float)
@@ -295,13 +296,13 @@ class TestMarketFactorCalculator:
                 "volume": 50000000,
                 "amount": 500000000,
             })
-        
+
         mock_data_client.get_stock_data.return_value = constant_data
-        
+
         volatility = await calculator.calculate_price_volatility("000001", "2024-01-15")
         # 价格恒定时，波动率应该接近0，但可能不完全为0
         assert volatility >= 0
-        
+
         momentum = await calculator.calculate_return_momentum("000001", "2024-01-15")
         # 价格恒定时，动量应该接近0，但可能不完全为0
         assert isinstance(momentum, float)
@@ -315,8 +316,8 @@ class TestMarketFactorCalculator:
                 "close": None,
                 "total_share": None,
             }]
-        
+
         mock_data_client.get_stock_data.side_effect = mock_missing_data
-        
+
         with pytest.raises(DataNotFoundError):
             await calculator.calculate_market_cap("000001", "2024-01-15")

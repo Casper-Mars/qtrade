@@ -19,19 +19,17 @@
 ### 0.2 现有组件清单
 
 **可复用的data-collector组件：**
-- 股票基础数据API：`/api/v1/stocks`
-- 股票行情数据API：`/api/v1/stock-quotes`
-- 财务报表数据API：`/api/v1/financial-reports`
-- 财务指标数据API：`/api/v1/financial-indicators`
 - 新闻数据API：`/api/v1/news`
-- 复权因子数据API：`/api/v1/adj-factors`
 
 **现有数据模型：**
-- StockBasic：股票基础信息
-- StockQuote：股票行情数据
-- FinancialReport：财务报表数据
-- FinancialIndicator：财务指标数据
 - News：新闻数据（包含关联股票信息）
+
+**新增tushare数据源：**
+- 股票基础数据：直接从tushare获取
+- 股票行情数据：直接从tushare获取
+- 财务报表数据：直接从tushare获取
+- 财务指标数据：直接从tushare获取
+- 复权因子数据：直接从tushare获取
 
 ### 0.3 架构约束识别
 
@@ -73,6 +71,7 @@
 graph TB
     subgraph "外部服务"
         DC[data-collector]
+        TS[tushare]
     end
     
     subgraph "quant-engine服务"
@@ -107,7 +106,8 @@ graph TB
     end
     
     %% 数据流向
-    DC --> FS
+    DC -->|新闻数据| FS
+    TS -->|股票行情、基本面数据| FS
     NLP --> NF
     
     FS --> TF
@@ -185,7 +185,8 @@ quant-engine/
 │   │       └── __init__.py
 │   ├── clients/                     # 外部服务客户端
 │   │   ├── __init__.py
-│   │   └── data_collector.py        # data-collector客户端
+│   │   ├── data_collector.py        # data-collector客户端（仅用于新闻数据）
+│   │   └── tushare_client.py        # tushare API客户端
 │   ├── nlp/                         # NLP处理模块
 │   │   ├── __init__.py
 │   │   ├── sentiment_analyzer.py    # 情绪分析器
@@ -238,7 +239,8 @@ quant-engine/
 │   │   ├── __init__.py
 │   │   ├── test_clients/
 │   │   │   ├── __init__.py
-│   │   │   └── test_data_collector.py
+│   │   │   ├── test_data_collector.py
+│   │   │   └── test_tushare_client.py
 │   │   ├── test_nlp/
 │   │   │   ├── __init__.py
 │   │   │   └── test_sentiment_analyzer.py
@@ -312,13 +314,21 @@ sequenceDiagram
     participant Client as 客户端
     participant APP as FastAPI应用
     participant FS as 因子服务
+    participant TS as tushare
     participant DC as data-collector
     participant DB as 数据库
     
     Client->>APP: 请求计算因子
     APP->>FS: 调用因子服务
-    FS->>DC: 获取基础数据
-    DC-->>FS: 返回股票/财务数据
+    
+    alt 股票行情和基本面数据
+        FS->>TS: 获取股票/财务数据
+        TS-->>FS: 返回股票/财务数据
+    else 新闻数据
+        FS->>DC: 获取新闻数据
+        DC-->>FS: 返回新闻数据
+    end
+    
     FS->>FS: 执行因子计算
     FS->>DB: 持久化数据
     FS-->>APP: 返回计算结果
@@ -340,7 +350,7 @@ sequenceDiagram
     participant API as 技术因子API
     participant Service as 因子服务
     participant Calculator as 技术因子计算器
-    participant DataClient as 数据客户端
+    participant TushareClient as Tushare客户端
     participant DAO as 数据访问层
     participant Cache as Redis缓存
     participant DB as MySQL数据库
@@ -355,9 +365,9 @@ sequenceDiagram
         Service-->>API: 返回计算结果
     else 缓存未命中
         Service->>Calculator: 执行因子计算
-        Calculator->>DataClient: 获取股票行情数据
-        DataClient->>DataClient: 调用data-collector API
-        DataClient-->>Calculator: 返回行情数据
+        Calculator->>TushareClient: 获取股票行情数据
+        TushareClient->>TushareClient: 调用tushare API
+        TushareClient-->>Calculator: 返回行情数据
         Calculator->>Calculator: 执行技术指标计算
         Calculator-->>Service: 返回计算结果
         
@@ -427,11 +437,56 @@ GET /api/v1/technical/history?stock_code=000001&factor=MA5&start_date=2024-01-01
 
 #### 2.1.4 核心组件设计
 
+**Tushare客户端**
+```python
+class TushareClient:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.http_client = httpx.AsyncClient()
+        # 初始化tushare
+        ts.set_token(api_key)
+        self.pro = ts.pro_api()
+    
+    async def get_stock_basic(self, stock_code: str) -> Dict[str, Any]:
+        """获取股票基本信息"""
+        pass
+    
+    async def get_daily_price(self, stock_code: str, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+        """获取股票日线数据"""
+        pass
+    
+    async def get_financial_statement(self, stock_code: str, period: str) -> Dict[str, Any]:
+        """获取财务报表数据"""
+        pass
+    
+    async def get_financial_indicator(self, stock_code: str, period: str) -> Dict[str, Any]:
+        """获取财务指标数据"""
+        pass
+    
+    async def get_adj_factor(self, stock_code: str, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+        """获取复权因子数据"""
+        pass
+```
+
+**Data-Collector客户端**
+```python
+class DataCollectorClient:
+    def __init__(self, base_url: str, api_key: str):
+        self.base_url = base_url
+        self.api_key = api_key
+        self.http_client = httpx.AsyncClient()
+    
+    async def get_news(self, stock_code: str, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+        """获取新闻数据"""
+        pass
+```
+
 **技术因子计算器**
 ```python
 class TechnicalFactorCalculator:
-    def __init__(self, data_client: DataCollectorClient):
-        self.data_client = data_client
+    def __init__(self, tushare_client: TushareClient, data_client: DataCollectorClient = None):
+        self.tushare_client = tushare_client
+        self.data_client = data_client  # 仅用于获取新闻数据
     
     async def calculate_ma(self, stock_code: str, period: int, end_date: str = None) -> float:
         """计算移动平均线"""
@@ -540,7 +595,7 @@ sequenceDiagram
     participant API as 基本面因子API
     participant Service as 因子服务
     participant Calculator as 基本面因子计算器
-    participant DataClient as 数据客户端
+    participant TushareClient as Tushare客户端
     participant DAO as 数据访问层
     participant Cache as Redis缓存
     participant DB as MySQL数据库
@@ -555,9 +610,9 @@ sequenceDiagram
         Service-->>API: 返回计算结果
     else 缓存未命中
         Service->>Calculator: 执行因子计算
-        Calculator->>DataClient: 获取财务报表数据
-        DataClient->>DataClient: 调用data-collector API
-        DataClient-->>Calculator: 返回财务数据
+        Calculator->>TushareClient: 获取财务报表数据
+        TushareClient->>TushareClient: 调用tushare API
+        TushareClient-->>Calculator: 返回财务数据
         Calculator->>Calculator: 执行财务指标计算
         Calculator-->>Service: 返回计算结果
         
@@ -790,7 +845,7 @@ sequenceDiagram
     participant API as 市场因子API
     participant Service as 因子服务
     participant Calculator as 市场因子计算器
-    participant DataClient as 数据客户端
+    participant TushareClient as Tushare客户端
     participant DAO as 数据访问层
     participant Cache as Redis缓存
     participant DB as MySQL数据库
@@ -806,9 +861,9 @@ sequenceDiagram
     else 缓存未命中
         Service->>Calculator: 执行因子计算
         
-        Calculator->>DataClient: 获取股票基础数据
-        DataClient->>DataClient: 调用data-collector股票API
-        DataClient-->>Calculator: 返回股票数据
+        Calculator->>TushareClient: 获取股票基础数据
+        TushareClient->>TushareClient: 调用tushare API
+        TushareClient-->>Calculator: 返回股票数据
         
         Calculator->>Calculator: 计算市值因子
         Calculator->>Calculator: 计算流动性因子
@@ -892,8 +947,9 @@ GET /api/v1/market/history?stock_code=000001&start_date=2023-10-01&end_date=2023
 class MarketFactorCalculator:
     """市场因子计算器 - 负责计算各类市场相关因子"""
     
-    def __init__(self, data_client: DataCollectorClient):
-        self.data_client = data_client
+    def __init__(self, tushare_client: TushareClient, data_client: DataCollectorClient = None):
+        self.tushare_client = tushare_client
+        self.data_client = data_client  # 仅用于获取新闻数据
         self.cache_manager = CacheManager()
     
     async def calculate_market_cap_factors(self, stock_code: str, trade_date: str) -> Dict[str, float]:

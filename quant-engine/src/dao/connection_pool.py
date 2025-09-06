@@ -3,10 +3,12 @@
 from contextlib import asynccontextmanager
 from typing import Any
 
+import redis
 from loguru import logger
 from sqlalchemy import text
 
 from ..config.database import AsyncSessionLocal, async_engine
+from ..config.redis import get_redis_client
 
 
 class ConnectionPoolManager:
@@ -15,22 +17,29 @@ class ConnectionPoolManager:
     def __init__(self) -> None:
         self._mysql_initialized = False
         self._redis_initialized = False
+        self._redis_client: redis.Redis | None = None
 
     async def initialize(self) -> None:
         """初始化所有连接池"""
         try:
             logger.info("开始初始化连接池...")
 
-            # 初始化数据库连接
-            # 测试数据库连接
+            # 初始化MySQL连接池
             async with AsyncSessionLocal() as session:
                 await session.execute(text("SELECT 1"))
             self._mysql_initialized = True
             logger.info("MySQL连接池初始化完成")
 
-            # Redis连接池在init_database中已初始化
-            self._redis_initialized = True
-            logger.info("Redis连接池初始化完成")
+            # 初始化Redis连接池
+            try:
+                self._redis_client = get_redis_client()
+                # 测试Redis连接
+                self._redis_client.ping()
+                self._redis_initialized = True
+                logger.info("Redis连接池初始化完成")
+            except Exception as e:
+                logger.error(f"Redis连接池初始化失败: {e}")
+                raise
 
             logger.info("所有连接池初始化完成")
 
@@ -48,12 +57,16 @@ class ConnectionPoolManager:
                 await async_engine.dispose()
                 logger.info("MySQL连接池已关闭")
 
-            if self._redis_initialized:
-                # Redis连接池清理逻辑
-                pass
+            if self._redis_initialized and self._redis_client:
+                try:
+                    self._redis_client.close()
+                    logger.info("Redis连接池已关闭")
+                except Exception as e:
+                    logger.warning(f"关闭Redis连接池时出错: {e}")
 
             self._mysql_initialized = False
             self._redis_initialized = False
+            self._redis_client = None
 
             logger.info("连接池清理完成")
 
@@ -80,10 +93,15 @@ class ConnectionPoolManager:
 
         # 检查Redis连接
         try:
-            # Redis连接检查暂时跳过，因为redis_pool未定义
-            health_status["redis"] = True
-            logger.debug("Redis连接健康")
+            if self._redis_client:
+                self._redis_client.ping()
+                health_status["redis"] = True
+                logger.debug("Redis连接健康")
+            else:
+                health_status["redis"] = False
+                logger.warning("Redis客户端未初始化")
         except Exception as e:
+            health_status["redis"] = False
             logger.error(f"Redis连接异常: {e}")
 
         health_status["overall"] = health_status["mysql"] and health_status["redis"]
@@ -117,9 +135,11 @@ async def get_redis_connection() -> Any:
     if not connection_pool_manager.is_initialized:
         raise RuntimeError("连接池未初始化")
 
-    # Redis连接池暂时返回None
+    if not connection_pool_manager._redis_client:
+        raise RuntimeError("Redis客户端未初始化")
+
     try:
-        yield None
+        yield connection_pool_manager._redis_client
     except Exception as e:
         logger.error(f"Redis连接异常: {e}")
         raise
@@ -143,13 +163,21 @@ async def get_connection_stats() -> dict[str, Any]:
     except Exception as e:
         mysql_stats = {"error": str(e)}
 
-    # Redis统计信息暂时返回默认值
-    redis_stats = {
-        "connected_clients": 0,
-        "used_memory": 0,
-        "keyspace_hits": 0,
-        "keyspace_misses": 0,
-    }
+    # Redis统计信息
+    try:
+        if connection_pool_manager._redis_client:
+            redis_info = connection_pool_manager._redis_client.info()
+            redis_stats = {
+                "connected_clients": redis_info.get("connected_clients", 0),
+                "used_memory": redis_info.get("used_memory", 0),
+                "keyspace_hits": redis_info.get("keyspace_hits", 0),
+                "keyspace_misses": redis_info.get("keyspace_misses", 0),
+                "redis_version": redis_info.get("redis_version", "unknown"),
+            }
+        else:
+            redis_stats = {"error": "Redis客户端未初始化"}
+    except Exception as e:
+        redis_stats = {"error": str(e)}
 
     stats = {"mysql": mysql_stats, "redis": redis_stats}
 

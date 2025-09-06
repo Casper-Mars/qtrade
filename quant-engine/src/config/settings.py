@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     )
     data_collector_timeout: int = Field(default=30, description="请求超时时间（秒）")
 
+    # Tushare配置
+    tushare_token: str = Field(default="", description="Tushare API Token")
+    tushare_timeout: int = Field(default=30, description="Tushare请求超时时间（秒）")
+    tushare_retry_count: int = Field(default=3, description="Tushare请求重试次数")
+    tushare_retry_delay: float = Field(default=1.0, description="Tushare请求重试延迟（秒）")
+
     # 日志配置
     log_level: str = Field(default="INFO", description="日志级别")
     log_file: str | None = Field(default=None, description="日志文件路径")

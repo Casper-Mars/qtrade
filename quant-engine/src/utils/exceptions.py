@@ -89,6 +89,15 @@ class DataNotFoundError(QuantEngineException):
         )
 
 
+class DataSourceError(QuantEngineException):
+    """数据源异常"""
+
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
+        super().__init__(
+            message=message, error_code="DATA_SOURCE_ERROR", details=details
+        )
+
+
 async def quant_engine_exception_handler(
     request: Request, exc: QuantEngineException
 ) -> JSONResponse:

@@ -5,6 +5,17 @@
 ### 项目概述
 本项目基于现有的quant-engine服务，实现因子计算引擎功能。quant-engine服务已有基础Python框架，需要在此基础上构建完整的因子计算体系，包括技术因子、基本面因子、市场因子和新闻情绪因子的计算功能。
 
+### 数据源架构
+
+- **Tushare数据源**：用于获取股票行情数据、基本面财务数据、市场数据等结构化金融数据
+  - 技术因子计算：股票日线行情数据（开高低收、成交量等）
+  - 基本面因子计算：财务报表数据（资产负债表、利润表、现金流量表等）
+  - 市场因子计算：市场基础数据（市值、流通股本、行业分类等）
+
+- **Data-Collector数据源**：用于获取新闻文本数据等非结构化数据
+  - 新闻情绪因子计算：股票相关新闻文本数据
+  - 舆情分析：社交媒体、财经新闻等文本数据
+
 ### 技术栈
 - **开发语言**: Python 3.11+
 - **Web框架**: FastAPI
@@ -12,29 +23,36 @@
 - **NLP处理**: transformers、torch（FinBERT）
 - **数据库**: MySQL（因子数据存储）+ Redis（缓存）
 - **HTTP客户端**: httpx
+- **金融数据源**: tushare（股票行情和基本面数据）
 - **任务调度**: APScheduler
 
 ## 第一阶段：基础设施任务（优先级最高，其他任务的前置条件）
 
-### 任务I001. 项目基础架构完善 ✅
+- [x] ### 任务I001. 项目基础架构完善
 - **实现内容**：
   - 完善quant-engine服务的基础架构配置（参考design_backend.md第1.4节）
   - 配置FastAPI应用实例和全局中间件（参考design_backend.md第1.3节）
+  - 实现TushareClient金融数据客户端（参考design_backend.md第1.1节和第2.1.4节）
+    * 配置tushare API token和连接
+    * 实现股票基本信息获取接口
+    * 实现日线数据获取接口
+    * 实现财务报表数据获取接口
+    * 添加数据缓存和错误重试机制
   - 实现与data-collector服务的HTTP客户端（参考design_backend.md第1.1节）
   - 配置MySQL和Redis连接池（参考design_backend.md第1.4节和第3.1节）
   - 设置全局日志记录和异常处理机制（参考design_backend.md第5.2节）
-  - 配置项目依赖管理和开发环境
+  - 配置项目依赖管理和开发环境（包含tushare SDK依赖）
 - **实现边界**：仅搭建服务基础架构，不涉及任何业务逻辑或业务路由
 - **禁止内容**：因子计算、数据处理等任何业务相关的实现
 - _Requirements: 系统架构需求_
-- _Design Reference: design_backend.md 第1.1-1.4节、第6.1节_
+- _Design Reference: design_backend.md 第1.1-1.4节、第2.1.4节、第6.1节_
 - _前置条件：无_
 - _后续依赖：所有业务功能任务_
 - **状态**：已完成
 
 ## 第二阶段：数据模型任务（业务功能的基础）
 
-### 任务D001. 因子数据模型设计与实现 ✅
+### 任务D001. 因子数据模型设计与实现
 - **实现内容**：
   - 根据design_backend.md第3.2节设计因子数据表结构
   - 实现因子相关的数据库模型和Pydantic模型（参考design_backend.md第2.1.5节）
@@ -57,7 +75,7 @@
 ### 模块A：技术因子计算模块
 
 #### 功能点A1：技术因子计算功能
-- [x] **任务M001. 实现技术因子计算功能（完整端到端实现）**
+- [ ] **任务M001. 实现技术因子计算功能（完整端到端实现）**
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -65,7 +83,7 @@
         participant API as 技术因子API
         participant Service as 因子服务
         participant Calculator as 技术因子计算器
-        participant DataClient as 数据客户端
+        participant TushareClient as Tushare客户端
         participant DAO as 数据访问层
         participant Cache as Redis缓存
         participant DB as MySQL数据库
@@ -80,9 +98,9 @@
             Service-->>API: 返回计算结果
         else 缓存未命中
             Service->>Calculator: 执行因子计算
-            Calculator->>DataClient: 获取股票行情数据
-            DataClient->>DataClient: 调用data-collector API
-            DataClient-->>Calculator: 返回行情数据
+            Calculator->>TushareClient: 获取股票行情数据
+            TushareClient->>TushareClient: 调用tushare日线数据API
+            TushareClient-->>Calculator: 返回行情数据
             Calculator->>Calculator: 执行技术指标计算
             Calculator-->>Service: 返回计算结果
             
@@ -110,6 +128,7 @@
        * 缓存策略和数据持久化逻辑
        * 批量计算和并发处理
     4. 实现数据访问层（参考design_backend.md第2.1.6节）
+       * 通过TushareClient获取股票日线行情数据
        * 因子数据的CRUD操作
        * Redis缓存操作和失效策略
        * 数据库事务处理和错误回滚
@@ -121,7 +140,7 @@
 ### 模块B：基本面因子计算模块
 
 #### 功能点B1：基本面因子计算功能
-- [x] **任务M002. 实现基本面因子计算功能（完整端到端实现）**
+- [ ] **任务M002. 实现基本面因子计算功能（完整端到端实现）**
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -129,7 +148,7 @@
         participant API as 基本面因子API
         participant Service as 因子服务
         participant Calculator as 基本面因子计算器
-        participant DataClient as 数据客户端
+        participant TushareClient as Tushare客户端
         participant DAO as 数据访问层
         participant Cache as Redis缓存
         participant DB as MySQL数据库
@@ -144,9 +163,9 @@
             Service-->>API: 返回计算结果
         else 缓存未命中
             Service->>Calculator: 执行因子计算
-            Calculator->>DataClient: 获取财务报表数据
-            DataClient->>DataClient: 调用data-collector API
-            DataClient-->>Calculator: 返回财务数据
+            Calculator->>TushareClient: 获取财务报表数据
+            TushareClient->>TushareClient: 调用tushare财务数据API
+            TushareClient-->>Calculator: 返回财务数据
             Calculator->>Calculator: 执行财务指标计算
             Calculator-->>Service: 返回计算结果
             
@@ -174,7 +193,8 @@
        * 财务报表数据获取和预处理
        * 数据质量检查和异常处理
        * 多期数据对比分析
-    4. 集成数据访问层和缓存策略
+    4. 集成Tushare数据客户端和缓存策略
+       * 通过TushareClient获取财务报表数据
        * 基本面因子数据存储
        * 财务数据缓存优化
   - _Requirements: 基本面因子计算需求_
@@ -185,7 +205,7 @@
 ### 模块C：市场因子计算模块
 
 #### 功能点C1：市场因子计算功能
-- [x] **任务M003. 实现市场因子计算功能（完整端到端实现）**
+- [ ] **任务M003. 实现市场因子计算功能（完整端到端实现）**
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -193,7 +213,7 @@
         participant API as 市场因子API
         participant Service as 因子服务
         participant Calculator as 市场因子计算器
-        participant DataClient as 数据客户端
+        participant TushareClient as Tushare客户端
         participant DAO as 数据访问层
         participant Cache as Redis缓存
         participant DB as MySQL数据库
@@ -208,9 +228,9 @@
             Service-->>API: 返回计算结果
         else 缓存未命中
             Service->>Calculator: 执行因子计算
-            Calculator->>DataClient: 获取市场数据
-            DataClient->>DataClient: 调用data-collector API
-            DataClient-->>Calculator: 返回市场数据
+            Calculator->>TushareClient: 获取市场数据
+            TushareClient->>TushareClient: 调用tushare市场数据API
+            TushareClient-->>Calculator: 返回市场数据
             Calculator->>Calculator: 执行市场因子计算
             Calculator-->>Service: 返回计算结果
             
@@ -238,7 +258,8 @@
        * 实时行情数据获取和处理
        * 历史数据回溯计算
        * 数据异常检测和处理
-    4. 集成数据访问层和实时更新机制
+    4. 集成Tushare数据客户端和缓存策略
+       * 通过TushareClient获取市场数据
        * 市场因子数据存储
        * 实时数据缓存策略
   - _Requirements: 市场因子计算需求_
@@ -249,7 +270,7 @@
 ### 模块D：新闻情绪因子计算模块
 
 #### 功能点D1：新闻情绪因子计算功能
-- [x] **任务M004. 实现新闻情绪因子计算功能（完整端到端实现）**
+- [ ] **任务M004. 实现新闻情绪因子计算功能（完整端到端实现）**
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -319,7 +340,11 @@
 ### 模块E：统一因子计算模块
 
 #### 功能点E1：统一因子计算功能
-- [x] **任务M005. 实现统一因子计算功能（完整端到端实现）**
+- [ ] **任务M005. 实现统一因子计算功能（完整端到端实现）**
+  - **数据源说明**：
+    - 通过TushareClient获取股票行情、财务、市场数据
+    - 通过DataCollectorClient获取新闻文本数据
+    - 实现多数据源的统一调度和管理
   - **时序图描述**：
     ```mermaid
     sequenceDiagram

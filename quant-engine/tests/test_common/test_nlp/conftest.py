@@ -1,8 +1,9 @@
 """NLP模块测试配置文件"""
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent.parent.parent
@@ -20,12 +21,12 @@ def mock_torch_device():
 def reset_singletons():
     """自动重置单例实例，确保测试隔离"""
     from src.nlp.model_manager import NLPModelManager
-    
+
     # 测试前重置
     NLPModelManager._instance = None
-    
+
     yield
-    
+
     # 测试后清理
     if NLPModelManager._instance:
         NLPModelManager._instance.clear_all_models()

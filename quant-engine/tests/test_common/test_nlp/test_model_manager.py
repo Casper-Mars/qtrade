@@ -1,8 +1,10 @@
 """NLP模型管理器单元测试"""
 
+from unittest.mock import Mock, patch
+
 import pytest
 import torch
-from unittest.mock import Mock, patch, MagicMock
+
 from src.nlp.model_manager import NLPModelManager
 
 
@@ -63,11 +65,11 @@ class TestNLPModelManager:
 
         # 测试加载
         result = self.manager.load_model("finbert2-large")
-        
+
         assert result is True
         assert "finbert2-large" in self.manager._models
         assert self.manager._current_model_key == "finbert2-large"
-        
+
         # 验证模型被移动到设备并设置为评估模式
         mock_model.to.assert_called_once_with(self.manager._device)
         mock_model.eval.assert_called_once()
@@ -88,16 +90,16 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         self.manager.load_model("finbert2-large")
-        
+
         # 重置mock调用计数
         mock_tokenizer_class.from_pretrained.reset_mock()
         mock_model_class.from_pretrained.reset_mock()
-        
+
         # 再次加载同一个模型
         result = self.manager.load_model("finbert2-large")
-        
+
         assert result is True
         assert self.manager._current_model_key == "finbert2-large"
         # 验证没有重新加载
@@ -110,9 +112,9 @@ class TestNLPModelManager:
         """测试加载模型时发生异常"""
         # 模拟异常
         mock_tokenizer_class.from_pretrained.side_effect = Exception("加载失败")
-        
+
         result = self.manager.load_model("finbert2-large")
-        
+
         assert result is False
         assert "finbert2-large" not in self.manager._models
         assert self.manager._current_model_key is None
@@ -130,9 +132,9 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         result = self.manager.switch_model("finbert2-large")
-        
+
         assert result is True
         assert self.manager._current_model_key == "finbert2-large"
 
@@ -145,12 +147,12 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         self.manager.load_model("finbert2-large")
-        
+
         # 切换到已加载的模型
         result = self.manager.switch_model("finbert2-large")
-        
+
         assert result is True
         assert self.manager._current_model_key == "finbert2-large"
 
@@ -170,11 +172,11 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         self.manager.load_model("finbert2-large")
-        
+
         info = self.manager.get_model_info()
-        
+
         assert info["current_model"] == "finbert2-large"
         assert "finbert2-large" in info["loaded_models"]
         assert "supported_models" in info
@@ -191,13 +193,13 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         self.manager.load_model("finbert2-large")
         assert "finbert2-large" in self.manager._models
-        
+
         # 卸载模型
         result = self.manager.unload_model("finbert2-large")
-        
+
         assert result is True
         assert "finbert2-large" not in self.manager._models
         assert self.manager._current_model_key is None
@@ -216,13 +218,13 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         self.manager.load_model("finbert2-large")
         assert len(self.manager._models) > 0
-        
+
         # 清理所有模型
         self.manager.clear_all_models()
-        
+
         assert len(self.manager._models) == 0
         assert self.manager._current_model_key is None
 
@@ -236,25 +238,25 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         # 模拟tokenizer输出
         mock_tokenizer.return_value = {
             'input_ids': mock_torch.tensor([[1, 2, 3]]),
             'attention_mask': mock_torch.tensor([[1, 1, 1]])
         }
-        
+
         # 模拟模型输出
         mock_outputs = Mock()
         mock_outputs.logits = mock_torch.tensor([[0.1, 0.2, 0.7]])
         mock_model.return_value = mock_outputs
-        
+
         # 模拟softmax输出
         mock_torch.nn.functional.softmax.return_value = mock_torch.tensor([[0.2, 0.3, 0.5]])
         mock_torch.tensor([[0.2, 0.3, 0.5]]).cpu.return_value.numpy.return_value = [[0.2, 0.3, 0.5]]
-        
+
         # 测试预测（会自动加载模型）
         result = self.manager.predict_sentiment("测试文本")
-        
+
         assert isinstance(result, dict)
         assert "positive" in result
         assert "negative" in result
@@ -276,32 +278,32 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         self.manager.load_model("finbert2-large")
-        
+
         # 模拟tokenizer输出
         mock_inputs = {
             'input_ids': Mock(),
             'attention_mask': Mock()
         }
         mock_tokenizer.return_value = mock_inputs
-        
+
         # 模拟设备转换
         for key in mock_inputs:
             mock_inputs[key].to.return_value = mock_inputs[key]
-        
+
         # 模拟模型输出
         mock_outputs = Mock()
         mock_outputs.logits = Mock()
         mock_model.return_value = mock_outputs
-        
+
         # 模拟softmax和numpy转换
         mock_predictions = Mock()
         mock_torch.nn.functional.softmax.return_value = mock_predictions
         mock_predictions.cpu.return_value.numpy.return_value = [[0.2, 0.3, 0.5]]  # 三分类
-        
+
         result = self.manager.predict_sentiment("测试文本")
-        
+
         assert result["negative"] == 0.2
         assert result["neutral"] == 0.3
         assert result["positive"] == 0.5
@@ -316,32 +318,32 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         self.manager.load_model("finbert2-large")
-        
+
         # 模拟tokenizer输出
         mock_inputs = {
             'input_ids': Mock(),
             'attention_mask': Mock()
         }
         mock_tokenizer.return_value = mock_inputs
-        
+
         # 模拟设备转换
         for key in mock_inputs:
             mock_inputs[key].to.return_value = mock_inputs[key]
-        
+
         # 模拟模型输出
         mock_outputs = Mock()
         mock_outputs.logits = Mock()
         mock_model.return_value = mock_outputs
-        
+
         # 模拟softmax和numpy转换
         mock_predictions = Mock()
         mock_torch.nn.functional.softmax.return_value = mock_predictions
         mock_predictions.cpu.return_value.numpy.return_value = [[0.3, 0.7]]  # 二分类
-        
+
         result = self.manager.predict_sentiment("测试文本")
-        
+
         assert result["negative"] == 0.3
         assert result["neutral"] == 0.0
         assert result["positive"] == 0.7
@@ -355,11 +357,11 @@ class TestNLPModelManager:
         mock_model = Mock()
         mock_tokenizer_class.from_pretrained.return_value = mock_tokenizer
         mock_model_class.from_pretrained.return_value = mock_model
-        
+
         self.manager.load_model("finbert2-large")
-        
+
         # 模拟tokenizer异常
         mock_tokenizer.side_effect = Exception("Tokenizer错误")
-        
+
         with pytest.raises(Exception):
             self.manager.predict_sentiment("测试文本")

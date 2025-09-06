@@ -3,12 +3,13 @@
 测试 SentimentFactorCalculator 类的各种功能
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.factor_engine.calculators.sentiment import SentimentFactorCalculator
+import pytest
+
 from src.clients.data_collector_client import DataCollectorClient
+from src.factor_engine.calculators.sentiment import SentimentFactorCalculator
 
 
 class TestSentimentFactorCalculator:
@@ -18,7 +19,7 @@ class TestSentimentFactorCalculator:
     def mock_data_client(self):
         """创建模拟数据客户端"""
         client = AsyncMock(spec=DataCollectorClient)
-        
+
         # 模拟新闻数据
         news_data = [
             {
@@ -46,9 +47,9 @@ class TestSentimentFactorCalculator:
                 "confidence": 0.7
             }
         ]
-        
+
         client.get_news_data.return_value = news_data
-        
+
         return client
 
     @pytest.fixture
@@ -108,11 +109,11 @@ class TestSentimentFactorCalculator:
                 "negative_score": 0.2,
                 "neutral_score": 0.1
             }
-            
+
             # 使用模拟的新闻数据
             news_data = await mock_data_client.get_news_data("000001", "2023-12-01", "2023-12-01")
-            result = calculator.calculate_news_sentiment_score(news_data)
-            
+            result = await calculator.calculate_news_sentiment_score(news_data)
+
             assert result is not None
             assert "sentiment_score" in result
             assert "confidence" in result
@@ -126,11 +127,11 @@ class TestSentimentFactorCalculator:
     async def test_calculate_news_sentiment_score_no_news(self, calculator, mock_data_client):
         """测试无新闻数据的情况"""
         mock_data_client.get_news_data.return_value = []
-        
+
         # 使用空的新闻数据
         news_data = await mock_data_client.get_news_data("000001", "2023-12-01", "2023-12-01")
-        result = calculator.calculate_news_sentiment_score(news_data)
-        
+        result = await calculator.calculate_news_sentiment_score(news_data)
+
         assert result is not None
         assert result["sentiment_score"] == 0.0
         assert result["confidence"] == 0.0
@@ -150,7 +151,7 @@ class TestSentimentFactorCalculator:
                 "confidence": 0.9
             }
         ]
-        
+
         recent_news = [
             {
                 "title": "新新闻",
@@ -161,7 +162,7 @@ class TestSentimentFactorCalculator:
                 "confidence": 0.9
             }
         ]
-        
+
         with patch.object(calculator, 'sentiment_analyzer') as mock_analyzer:
             mock_analyzer.analyze_sentiment.return_value = {
                 "sentiment_score": 0.8,
@@ -170,13 +171,13 @@ class TestSentimentFactorCalculator:
                 "negative_score": 0.1,
                 "neutral_score": 0.1
             }
-            
+
             # 测试旧新闻
-            old_result = calculator.calculate_news_sentiment_score(old_news)
-            
-            # 测试新新闻
-            recent_result = calculator.calculate_news_sentiment_score(recent_news)
-            
+            old_result = await calculator.calculate_news_sentiment_score(old_news)
+
+            # 计算最近新闻的情绪分数
+            recent_result = await calculator.calculate_news_sentiment_score(recent_news)
+
             # 新新闻的权重应该更高
             assert recent_result["sentiment_score"] >= old_result["sentiment_score"]
 
@@ -192,11 +193,11 @@ class TestSentimentFactorCalculator:
                 "negative_score": 0.2,
                 "neutral_score": 0.1
             }
-            
+
             start_date = datetime(2023, 11, 24)
             end_date = datetime(2023, 12, 1)
             result = await calculator.calculate_stock_sentiment_factor("000001", start_date, end_date)
-            
+
             assert result is not None
             assert isinstance(result, dict)
             assert "sentiment_factor" in result
@@ -207,11 +208,11 @@ class TestSentimentFactorCalculator:
     async def test_calculate_stock_sentiment_factor_no_news(self, calculator, mock_data_client):
         """测试无新闻时的股票情绪因子计算"""
         mock_data_client.get_news_data.return_value = []
-        
+
         start_date = datetime(2023, 11, 24)
         end_date = datetime(2023, 12, 1)
         result = await calculator.calculate_stock_sentiment_factor("000001", start_date, end_date)
-        
+
         assert result is not None
         assert result["sentiment_factor"] == 0.0
         assert result["sentiment_details"]["confidence"] == 0.0
@@ -222,7 +223,7 @@ class TestSentimentFactorCalculator:
     async def test_calculate_batch_sentiment_factors_normal(self, calculator, mock_data_client):
         """测试正常情况下的批量情绪因子计算"""
         stock_codes = ["000001", "000002", "000003"]
-        
+
         with patch.object(calculator, 'sentiment_analyzer') as mock_analyzer:
             mock_analyzer.analyze_sentiment.return_value = {
                 "sentiment_scores": {
@@ -232,14 +233,14 @@ class TestSentimentFactorCalculator:
                 },
                 "confidence": 0.8
             }
-            
+
             date = datetime(2023, 12, 1)
             result = await calculator.calculate_batch_sentiment_factors(stock_codes, date)
-            
+
             assert result is not None
             assert isinstance(result, list)
             assert len(result) == len(stock_codes)
-            
+
             for item in result:
                 assert isinstance(item, dict)
                 assert "sentiment_factor" in item
@@ -249,7 +250,7 @@ class TestSentimentFactorCalculator:
         """测试空股票列表的批量计算"""
         date = datetime(2023, 12, 1)
         result = await calculator.calculate_batch_sentiment_factors([], date)
-        
+
         assert result is not None
         assert isinstance(result, list)
         assert len(result) == 0
@@ -267,9 +268,9 @@ class TestSentimentFactorCalculator:
                 },
                 "confidence": 0.8
             }
-            
+
             result = await calculator.get_sentiment_trend("000001", days=7)
-            
+
             assert result is not None
             assert isinstance(result, dict)
             assert "statistics" in result
@@ -291,9 +292,9 @@ class TestSentimentFactorCalculator:
                 "confidence": 0.8
             }
         ]
-        
+
         mock_data_client.get_news_data.return_value = limited_news
-        
+
         with patch.object(calculator, 'sentiment_analyzer') as mock_analyzer:
             mock_analyzer.analyze_sentiment.return_value = {
                 "sentiment_scores": {
@@ -303,9 +304,9 @@ class TestSentimentFactorCalculator:
                 },
                 "confidence": 0.8
             }
-            
+
             result = await calculator.get_sentiment_trend("000001", days=7)
-            
+
             assert result is not None
             # 数据不足时应该有合理的默认值
             assert "statistics" in result
@@ -323,15 +324,15 @@ class TestSentimentFactorCalculator:
                 "negative_score": 0.2,
                 "neutral_score": 0.1
             }
-            
+
             start_date = datetime(2023, 11, 24)
             end_date = datetime(2023, 12, 1)
-            
+
             # 测试股票情绪因子计算
             sentiment_result = await calculator.calculate_stock_sentiment_factor("000001", start_date, end_date)
             assert sentiment_result is not None
             assert "sentiment_factor" in sentiment_result
-            
+
             # 测试情绪趋势计算
             trend_result = await calculator.get_sentiment_trend("000001", days=7)
             assert trend_result is not None
@@ -360,9 +361,9 @@ class TestSentimentFactorCalculator:
                 "confidence": 1.0
             }
         ]
-        
+
         mock_data_client.get_news_data.return_value = extreme_news
-        
+
         with patch.object(calculator, 'sentiment_analyzer') as mock_analyzer:
             mock_analyzer.analyze_sentiment.side_effect = [
                 {
@@ -380,9 +381,9 @@ class TestSentimentFactorCalculator:
                     "neutral_score": 0.0
                 }
             ]
-            
-            result = calculator.calculate_news_sentiment_score(extreme_news)
-            
+
+            result = await calculator.calculate_news_sentiment_score(extreme_news)
+
             assert result is not None
             # 极端值应该被合理处理
             assert -1.0 <= result["sentiment_score"] <= 1.0
@@ -412,9 +413,9 @@ class TestSentimentFactorCalculator:
                 "confidence": None
             }
         ]
-        
+
         mock_data_client.get_news_data.return_value = malformed_news
-        
+
         with patch.object(calculator, 'sentiment_analyzer') as mock_analyzer:
             mock_analyzer.analyze_sentiment.return_value = {
                 "sentiment_score": 0.5,
@@ -423,10 +424,10 @@ class TestSentimentFactorCalculator:
                 "negative_score": 0.3,
                 "neutral_score": 0.1
             }
-            
+
             # 应该能处理格式错误的数据而不崩溃
-            result = calculator.calculate_news_sentiment_score(malformed_news)
-            
+            result = await calculator.calculate_news_sentiment_score(malformed_news)
+
             assert result is not None
             assert isinstance(result, dict)
 
@@ -434,12 +435,12 @@ class TestSentimentFactorCalculator:
     async def test_edge_case_data_client_exception(self, calculator, mock_data_client):
         """测试数据客户端异常"""
         mock_data_client.get_news_data.side_effect = Exception("数据获取失败")
-        
+
         start_date = datetime(2023, 11, 24)
         end_date = datetime(2023, 12, 1)
-        
+
         # 数据客户端异常时应该抛出异常
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, RuntimeError)):
             await calculator.calculate_stock_sentiment_factor("000001", start_date, end_date)
 
     @pytest.mark.asyncio
@@ -447,11 +448,11 @@ class TestSentimentFactorCalculator:
         """测试情绪分析器异常的边界情况"""
         with patch.object(calculator, 'sentiment_analyzer') as mock_analyzer:
             mock_analyzer.analyze_sentiment.side_effect = Exception("分析器异常")
-            
+
             start_date = datetime(2023, 11, 24)
             end_date = datetime(2023, 12, 1)
             result = await calculator.calculate_stock_sentiment_factor("000001", start_date, end_date)
-            
+
             # 分析器异常时应该有合理的降级处理
             assert result is not None
             assert isinstance(result, dict)

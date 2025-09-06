@@ -3,12 +3,12 @@
 测试 FundamentalFactorCalculator 类的各种功能
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timedelta
+from unittest.mock import AsyncMock
 
-from src.factor_engine.calculators.fundamental import FundamentalFactorCalculator
+import pytest
+
 from src.clients.data_collector_client import DataCollectorClient
+from src.factor_engine.calculators.fundamental import FundamentalFactorCalculator
 
 
 class TestFundamentalFactorCalculator:
@@ -18,7 +18,7 @@ class TestFundamentalFactorCalculator:
     def mock_data_client(self):
         """创建模拟数据客户端"""
         client = AsyncMock(spec=DataCollectorClient)
-        
+
         # 模拟财务数据 - 注意返回的是列表格式
         financial_data = {
             "net_profit": 1000000000,  # 10亿净利润
@@ -30,7 +30,7 @@ class TestFundamentalFactorCalculator:
             "current_assets": 3000000000,  # 30亿流动资产
             "current_liabilities": 2000000000,  # 20亿流动负债
         }
-        
+
         # 返回列表格式，因为 _get_financial_data 方法期望列表
         client.get_financial_data.return_value = [financial_data]
         return client
@@ -44,15 +44,15 @@ class TestFundamentalFactorCalculator:
     async def test_calculate_factors_single_factor(self, calculator, mock_data_client):
         """测试计算单个因子"""
         result = await calculator.calculate_factors("000001", ["ROE"], "2023Q3")
-        
+
         assert "ROE" in result
-        assert isinstance(result["ROE"], (float, type(None)))
+        assert isinstance(result["ROE"], float | type(None))
 
     @pytest.mark.asyncio
     async def test_calculate_factors_multiple_factors(self, calculator, mock_data_client):
         """测试计算多个因子"""
         result = await calculator.calculate_factors("000001", ["ROE", "ROA"], "2023Q3")
-        
+
         assert "ROE" in result
         assert "ROA" in result
         assert len(result) == 2
@@ -61,7 +61,7 @@ class TestFundamentalFactorCalculator:
     async def test_calculate_factors_unsupported_factor(self, calculator, mock_data_client):
         """测试不支持的因子"""
         result = await calculator.calculate_factors("000001", ["UNSUPPORTED"], "2023Q3")
-        
+
         assert "UNSUPPORTED" in result
         assert result["UNSUPPORTED"] is None
 
@@ -72,9 +72,9 @@ class TestFundamentalFactorCalculator:
             "net_profit": 1000000000,
             "total_equity": 5000000000
         }
-        
+
         result = await calculator.calculate_roe("000001", "2023Q3", financial_data)
-        
+
         # ROE = 净利润 / 股东权益 = 10亿 / 50亿 = 0.2 = 20%
         assert result is not None
         assert isinstance(result, float)
@@ -86,9 +86,9 @@ class TestFundamentalFactorCalculator:
             "net_profit": 1000000000,
             "total_equity": 0
         }
-        
+
         result = await calculator.calculate_roe("000001", "2023Q3", financial_data)
-        
+
         assert result is None
 
     @pytest.mark.asyncio
@@ -98,9 +98,9 @@ class TestFundamentalFactorCalculator:
             "net_profit": 1000000000,
             "total_assets": 10000000000
         }
-        
+
         result = await calculator.calculate_roa("000001", "2023Q3", financial_data)
-        
+
         # ROA = 净利润 / 总资产 = 10亿 / 100亿 = 0.1 = 10%
         assert result is not None
         assert isinstance(result, float)
@@ -112,9 +112,9 @@ class TestFundamentalFactorCalculator:
             "revenue": 8000000000,
             "cost_of_sales": 6000000000
         }
-        
+
         result = await calculator.calculate_gross_margin("000001", "2023Q3", financial_data)
-        
+
         # 毛利率 = (营收 - 销售成本) / 营收 = (80亿 - 60亿) / 80亿 = 0.25 = 25%
         assert result is not None
         assert isinstance(result, float)
@@ -127,9 +127,9 @@ class TestFundamentalFactorCalculator:
             "net_profit": 1000000000,
             "revenue": 8000000000
         }
-        
+
         result = await calculator.calculate_net_profit_margin("000001", "2023Q3", financial_data)
-        
+
         # 净利率 = 净利润 / 营收 = 10亿 / 80亿 = 0.125 = 12.5%
         assert result is not None
         assert isinstance(result, float)
@@ -142,9 +142,9 @@ class TestFundamentalFactorCalculator:
             "total_liabilities": 5000000000,
             "total_assets": 10000000000
         }
-        
+
         result = await calculator.calculate_debt_ratio("000001", "2023Q3", financial_data)
-        
+
         # 资产负债率 = 总负债 / 总资产 = 50亿 / 100亿 = 0.5 = 50%
         assert result is not None
         assert isinstance(result, float)
@@ -157,9 +157,9 @@ class TestFundamentalFactorCalculator:
             "current_assets": 3000000000,
             "current_liabilities": 2000000000
         }
-        
+
         result = await calculator.calculate_current_ratio("000001", "2023Q3", financial_data)
-        
+
         # 流动比率 = 流动资产 / 流动负债 = 30亿 / 20亿 = 1.5
         assert result is not None
         assert isinstance(result, float)
@@ -173,7 +173,7 @@ class TestFundamentalFactorCalculator:
             "net_profit": 1000000000,
             "revenue": 0
         }
-        
+
         result = await calculator.calculate_net_profit_margin("000001", "2023Q3", financial_data)
         assert result is None
 
@@ -184,7 +184,7 @@ class TestFundamentalFactorCalculator:
             "net_profit": 1000000000,
             "total_assets": 0
         }
-        
+
         result = await calculator.calculate_roa("000001", "2023Q3", financial_data)
         assert result is None
 
@@ -195,7 +195,7 @@ class TestFundamentalFactorCalculator:
             "current_assets": 3000000000,
             "current_liabilities": 0
         }
-        
+
         result = await calculator.calculate_current_ratio("000001", "2023Q3", financial_data)
         assert result is None
 

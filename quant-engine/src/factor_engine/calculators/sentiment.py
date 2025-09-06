@@ -69,7 +69,7 @@ class SentimentFactorCalculator:
 
         return max_modifier
 
-    def calculate_news_sentiment_score(self, news_data: list[dict]) -> dict[str, float]:
+    async def calculate_news_sentiment_score(self, news_data: list[dict]) -> dict[str, float]:
         """计算新闻情绪分数
 
         Args:
@@ -114,20 +114,20 @@ class SentimentFactorCalculator:
                     continue  # 跳过时间格式不正确的新闻
 
                 # 分析标题情绪
-                title_sentiment = self.sentiment_analyzer.analyze_sentiment(title)
+                title_sentiment = await self.sentiment_analyzer.analyze_sentiment(title)
 
                 # 分析内容情绪
-                content_sentiment = self.sentiment_analyzer.analyze_sentiment(content)
+                content_sentiment = await self.sentiment_analyzer.analyze_sentiment(content)
 
                 # 计算综合情绪分数
                 title_score = (
-                    title_sentiment["sentiment_scores"]["positive"] -
-                    title_sentiment["sentiment_scores"]["negative"]
+                    title_sentiment["positive"] -
+                    title_sentiment["negative"]
                 )
 
                 content_score = (
-                    content_sentiment["sentiment_scores"]["positive"] -
-                    content_sentiment["sentiment_scores"]["negative"]
+                    content_sentiment["positive"] -
+                    content_sentiment["negative"]
                 )
 
                 # 加权平均
@@ -155,16 +155,16 @@ class SentimentFactorCalculator:
 
                 # 累积各类情绪分数
                 avg_positive = (
-                    self.weights["title_weight"] * title_sentiment["sentiment_scores"]["positive"] +
-                    self.weights["content_weight"] * content_sentiment["sentiment_scores"]["positive"]
+                    self.weights["title_weight"] * title_sentiment["positive"] +
+                    self.weights["content_weight"] * content_sentiment["positive"]
                 )
                 avg_negative = (
-                    self.weights["title_weight"] * title_sentiment["sentiment_scores"]["negative"] +
-                    self.weights["content_weight"] * content_sentiment["sentiment_scores"]["negative"]
+                    self.weights["title_weight"] * title_sentiment["negative"] +
+                    self.weights["content_weight"] * content_sentiment["negative"]
                 )
                 avg_neutral = (
-                    self.weights["title_weight"] * title_sentiment["sentiment_scores"]["neutral"] +
-                    self.weights["content_weight"] * content_sentiment["sentiment_scores"]["neutral"]
+                    self.weights["title_weight"] * title_sentiment["neutral"] +
+                    self.weights["content_weight"] * content_sentiment["neutral"]
                 )
 
                 positive_sum += avg_positive * final_weight
@@ -243,7 +243,7 @@ class SentimentFactorCalculator:
                 }
 
             # 计算情绪分数
-            sentiment_result = self.calculate_news_sentiment_score(news_data)
+            sentiment_result = await self.calculate_news_sentiment_score(news_data)
 
             # 情绪因子 = 情绪分数，范围 [-1, 1]
             sentiment_factor = sentiment_result["sentiment_score"]

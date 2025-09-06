@@ -363,5 +363,5 @@ class TestNLPModelManager:
         # 模拟tokenizer异常
         mock_tokenizer.side_effect = Exception("Tokenizer错误")
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Tokenizer错误"):
             self.manager.predict_sentiment("测试文本")

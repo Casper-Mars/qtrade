@@ -1,9 +1,11 @@
 """Tushare金融数据客户端"""
 
 import asyncio
+from collections.abc import Callable
+from typing import Any
 
 import pandas as pd
-import tushare as ts
+import tushare as ts  # type: ignore
 from loguru import logger
 
 from ..config.settings import settings
@@ -16,9 +18,9 @@ class TushareClient:
     提供股票基本信息、日线数据、财务报表数据等金融数据获取功能
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化Tushare客户端"""
-        self._api = None
+        self._api: Any | None = None
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -47,15 +49,18 @@ class TushareClient:
         """测试Tushare连接"""
         try:
             # 获取交易日历测试连接
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api  # 类型断言
             result = await self._execute_with_retry(
-                lambda: self._api.trade_cal(exchange='SSE', start_date='20240101', end_date='20240102')
+                lambda: api.trade_cal(exchange='SSE', start_date='20240101', end_date='20240102')
             )
             if result is None or len(result) == 0:
                 raise DataSourceError("Tushare连接测试失败")
         except Exception as e:
             raise DataSourceError(f"Tushare连接测试失败: {e}") from e
 
-    async def _execute_with_retry(self, func, *args, **kwargs) -> pd.DataFrame | None:
+    async def _execute_with_retry(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """带重试机制的API调用"""
         if not self._initialized:
             await self.initialize()
@@ -80,7 +85,7 @@ class TushareClient:
 
     async def get_stock_basic(self,
                              exchange: str | None = None,
-                             list_status: str = 'L') -> pd.DataFrame:
+                             list_status: str = 'L') -> Any:
         """获取股票基本信息
 
         Args:
@@ -91,8 +96,11 @@ class TushareClient:
             包含股票基本信息的DataFrame
         """
         try:
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api  # 类型断言
             result = await self._execute_with_retry(
-                lambda: self._api.stock_basic(
+                lambda: api.stock_basic(
                     exchange=exchange,
                     list_status=list_status,
                     fields='ts_code,symbol,name,area,industry,market,list_date'
@@ -114,7 +122,7 @@ class TushareClient:
                            ts_code: str,
                            start_date: str | None = None,
                            end_date: str | None = None,
-                           limit: int = 1000) -> pd.DataFrame:
+                           limit: int = 1000) -> Any:
         """获取股票日线数据
 
         Args:
@@ -127,8 +135,11 @@ class TushareClient:
             包含日线数据的DataFrame
         """
         try:
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api  # 类型断言
             result = await self._execute_with_retry(
-                lambda: self._api.daily(
+                lambda: api.daily(
                     ts_code=ts_code,
                     start_date=start_date,
                     end_date=end_date,
@@ -155,7 +166,7 @@ class TushareClient:
                                  ts_code: str,
                                  start_date: str | None = None,
                                  end_date: str | None = None,
-                                 period: str = 'A') -> pd.DataFrame:
+                                 period: str = 'A') -> Any:
         """获取利润表数据
 
         Args:
@@ -168,8 +179,11 @@ class TushareClient:
             包含利润表数据的DataFrame
         """
         try:
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api  # 类型断言
             result = await self._execute_with_retry(
-                lambda: self._api.income(
+                lambda: api.income(
                     ts_code=ts_code,
                     start_date=start_date,
                     end_date=end_date,
@@ -193,7 +207,7 @@ class TushareClient:
                               ts_code: str,
                               start_date: str | None = None,
                               end_date: str | None = None,
-                              period: str = 'A') -> pd.DataFrame:
+                              period: str = 'A') -> Any:
         """获取资产负债表数据
 
         Args:
@@ -206,8 +220,11 @@ class TushareClient:
             包含资产负债表数据的DataFrame
         """
         try:
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api  # 类型断言
             result = await self._execute_with_retry(
-                lambda: self._api.balancesheet(
+                lambda: api.balancesheet(
                     ts_code=ts_code,
                     start_date=start_date,
                     end_date=end_date,
@@ -231,7 +248,7 @@ class TushareClient:
                                    ts_code: str,
                                    start_date: str | None = None,
                                    end_date: str | None = None,
-                                   period: str = 'A') -> pd.DataFrame:
+                                   period: str = 'A') -> Any:
         """获取现金流量表数据
 
         Args:
@@ -244,8 +261,11 @@ class TushareClient:
             包含现金流量表数据的DataFrame
         """
         try:
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api  # 类型断言
             result = await self._execute_with_retry(
-                lambda: self._api.cashflow(
+                lambda: api.cashflow(
                     ts_code=ts_code,
                     start_date=start_date,
                     end_date=end_date,
@@ -269,7 +289,7 @@ class TushareClient:
                                      ts_code: str,
                                      start_date: str | None = None,
                                      end_date: str | None = None,
-                                     period: str = 'A') -> pd.DataFrame:
+                                     period: str = 'A') -> Any:
         """获取财务指标数据
 
         Args:
@@ -282,8 +302,11 @@ class TushareClient:
             包含财务指标数据的DataFrame
         """
         try:
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api  # 类型断言
             result = await self._execute_with_retry(
-                lambda: self._api.fina_indicator(
+                lambda: api.fina_indicator(
                     ts_code=ts_code,
                     start_date=start_date,
                     end_date=end_date,

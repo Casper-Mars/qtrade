@@ -237,7 +237,7 @@ class TestNLPIntegration:
                 # 应该抛出异常
                 try:
                     await self.analyzer.analyze_sentiment("股票上涨")
-                    assert False, "应该抛出RuntimeError"
+                    raise AssertionError("应该抛出RuntimeError")
                 except RuntimeError as e:
                     assert "无法加载模型" in str(e)
 

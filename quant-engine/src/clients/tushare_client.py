@@ -2,7 +2,7 @@
 
 import asyncio
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Dict, List
 
 import pandas as pd
 import tushare as ts  # type: ignore
@@ -71,7 +71,14 @@ class TushareClient:
             )
             if result is None or len(result) == 0:
                 raise DataSourceError("Tushare连接测试失败")
+            logger.info("Tushare连接测试成功")
         except Exception as e:
+            error_msg = str(e)
+            # 如果是权限问题，记录警告但不阻止初始化
+            if "没有接口访问权限" in error_msg or "权限" in error_msg:
+                logger.warning(f"Tushare权限受限，将以受限模式运行: {error_msg}")
+                return  # 允许初始化继续
+            # 其他错误仍然抛出异常
             raise DataSourceError(f"Tushare连接测试失败: {e}") from e
 
     async def _execute_with_retry(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -339,6 +346,110 @@ class TushareClient:
         except Exception as e:
             logger.error(f"获取股票{ts_code}财务指标数据失败: {e}")
             raise DataSourceError(f"获取股票{ts_code}财务指标数据失败: {e}") from e
+
+    async def get_daily_basic(self, ts_code: str = None, trade_date: str = None, 
+                             start_date: str = None, end_date: str = None) -> List[Dict[str, Any]]:
+        """
+        获取股票每日基本面数据（市值、换手率等）
+        
+        Args:
+            ts_code: 股票代码（如：000001.SZ）
+            trade_date: 交易日期（YYYYMMDD格式）
+            start_date: 开始日期（YYYYMMDD格式）
+            end_date: 结束日期（YYYYMMDD格式）
+            
+        Returns:
+            包含每日基本面数据的字典列表
+            
+        Raises:
+            DataSourceError: 当数据获取失败时抛出
+        """
+        try:
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api  # 类型断言
+            
+            params = {}
+            if ts_code:
+                params['ts_code'] = ts_code
+            if trade_date:
+                params['trade_date'] = trade_date
+            if start_date:
+                params['start_date'] = start_date
+            if end_date:
+                params['end_date'] = end_date
+                
+            result = await self._execute_with_retry(
+                lambda: api.daily_basic(**params)
+            )
+            
+            if result is None or len(result) == 0:
+                logger.warning("未获取到每日基本面数据")
+                return []
+                
+            # 转换为字典列表格式
+            data_list = result.to_dict('records')
+            logger.info(f"成功获取{len(data_list)}条每日基本面数据")
+            return data_list
+                
+        except Exception as e:
+            logger.error(f"获取每日基本面数据失败: {e}")
+            raise DataSourceError(f"获取每日基本面数据失败: {e}") from e
+
+    async def get_stock_basic(self, ts_code: str = None, name: str = None, 
+                             exchange: str = None, market: str = None, 
+                             is_hs: str = None, list_status: str = 'L') -> List[Dict[str, Any]]:
+        """
+        获取股票基本信息
+        
+        Args:
+            ts_code: 股票代码
+            name: 股票名称
+            exchange: 交易所代码
+            market: 市场类别
+            is_hs: 是否沪深港通标的
+            list_status: 上市状态（L上市 D退市 P暂停上市）
+            
+        Returns:
+            包含股票基本信息的字典列表
+            
+        Raises:
+            DataSourceError: 当数据获取失败时抛出
+        """
+        try:
+            params = {'list_status': list_status}
+            if ts_code:
+                params['ts_code'] = ts_code
+            if name:
+                params['name'] = name
+            if exchange:
+                params['exchange'] = exchange
+            if market:
+                params['market'] = market
+            if is_hs:
+                params['is_hs'] = is_hs
+                
+            result = await self._call_api('stock_basic', **params)
+            
+            if result and 'data' in result:
+                # 转换为字典列表格式
+                columns = result['data']['fields']
+                rows = result['data']['items']
+                
+                data_list = []
+                for row in rows:
+                    data_dict = dict(zip(columns, row))
+                    data_list.append(data_dict)
+                    
+                logger.info(f"成功获取{len(data_list)}条股票基本信息")
+                return data_list
+            else:
+                logger.warning("未获取到股票基本信息")
+                return []
+                
+        except Exception as e:
+            logger.error(f"获取股票基本信息失败: {e}")
+            raise DataSourceError(f"获取股票基本信息失败: {e}") from e
 
 
 # 全局Tushare客户端实例

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from src.utils.exceptions import DataNotFoundError, FactorCalculationException
 
-from ....clients.data_collector_client import DataCollectorClient
+from ....clients.tushare_client import TushareClient
 from ....config.database import get_db_session
 from ....config.redis import get_redis_client
 from ...dao.factor_dao import FactorDAO
@@ -32,13 +32,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/market", tags=["market-factors"])
 
 
-def get_factor_service(
+async def get_factor_service(
     db_session: Session = Depends(get_db_session),
     redis_client: Redis = Depends(get_redis_client),
 ) -> FactorService:
     """获取因子服务实例"""
     factor_dao = FactorDAO(db_session, redis_client)
-    data_client = DataCollectorClient()
+    data_client = TushareClient()
+    await data_client.initialize()  # 确保TushareClient被正确初始化
     return FactorService(factor_dao, data_client)
 
 

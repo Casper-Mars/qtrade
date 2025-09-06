@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from ...clients.data_collector_client import DataCollectorClient
+from ...clients.tushare_client import TushareClient
 from ...utils.exceptions import DataNotFoundError, FactorCalculationException
 
 logger = logging.getLogger(__name__)
@@ -25,11 +25,11 @@ class MarketFactorCalculator:
     提供各种市场因子的计算功能
     """
 
-    def __init__(self, data_client: DataCollectorClient) -> None:
+    def __init__(self, data_client: TushareClient) -> None:
         """初始化市场因子计算器
 
         Args:
-            data_client: 数据采集客户端
+            data_client: Tushare数据客户端
         """
         self.data_client = data_client
         self.supported_factors: dict[str, Callable[[str, str], Awaitable[float]]] = {
@@ -92,32 +92,25 @@ class MarketFactorCalculator:
             DataNotFoundError: 当数据不存在时抛出
         """
         try:
-            # 获取股票数据（包含基础信息和行情数据）
-            stock_data = await self.data_client.get_stock_data(
-                stock_code, trade_date, trade_date
+            # 转换日期格式为tushare格式（YYYYMMDD）
+            formatted_date = trade_date.replace("-", "")
+            
+            # 获取每日基本面数据（包含市值信息）
+            daily_basic_data = await self.data_client.get_daily_basic(
+                ts_code=stock_code, trade_date=formatted_date
             )
-            if not stock_data:
-                raise DataNotFoundError(f"股票数据不存在: {stock_code}, {trade_date}")
-
-            # 从返回数据中提取当日数据
-            if isinstance(stock_data, list) and len(stock_data) > 0:
-                quote_data = stock_data[0]
-            else:
-                raise DataNotFoundError(f"股票行情数据不存在: {stock_code}, {trade_date}")
-
-            # 计算总市值 = 收盘价 * 总股本
-            close_price = quote_data.get("close")
-            total_share = quote_data.get("total_share")  # 总股本（万股）
-
-            if close_price is None or total_share is None:
-                raise DataNotFoundError(f"缺少计算市值的必要数据: {stock_code}")
-
-            # 确保类型转换为float
-            close_price_float = float(close_price)
-            total_share_float = float(total_share)
-            market_cap = close_price_float * total_share_float  # 万元
-            return round(market_cap, 2)
-
+            
+            if not daily_basic_data:
+                raise DataNotFoundError(f"股票每日基本面数据不存在: {stock_code}, {trade_date}")
+            
+            data = daily_basic_data[0]
+            total_mv = data.get("total_mv", 0)  # 总市值（万元）
+            
+            if total_mv == 0:
+                raise DataNotFoundError(f"股票总市值数据不完整: {stock_code}")
+            
+            return round(float(total_mv), 2)
+            
         except Exception as e:
             logger.error(
                 f"总市值计算失败: stock_code={stock_code}, trade_date={trade_date}, error={str(e)}"
@@ -140,101 +133,66 @@ class MarketFactorCalculator:
             DataNotFoundError: 当数据不存在时抛出
         """
         try:
-            # 获取股票数据（包含基础信息和行情数据）
-            stock_data = await self.data_client.get_stock_data(
-                stock_code, trade_date, trade_date
+            # 转换日期格式为tushare格式（YYYYMMDD）
+            formatted_date = trade_date.replace("-", "")
+            
+            # 获取每日基本面数据（包含流通市值信息）
+            daily_basic_data = await self.data_client.get_daily_basic(
+                ts_code=stock_code, trade_date=formatted_date
             )
-            if not stock_data:
-                raise DataNotFoundError(f"股票数据不存在: {stock_code}, {trade_date}")
-
-            # 从返回数据中提取当日数据
-            if isinstance(stock_data, list) and len(stock_data) > 0:
-                quote_data = stock_data[0]
-            else:
-                raise DataNotFoundError(f"股票行情数据不存在: {stock_code}, {trade_date}")
-            if not quote_data:
-                raise DataNotFoundError(
-                    f"股票行情数据不存在: {stock_code}, {trade_date}"
-                )
-
-            # 计算流通市值 = 收盘价 * 流通股本
-            close_price = quote_data.get("close")
-            float_share = quote_data.get("float_share")  # 流通股本（万股）
-
-            if close_price is None or float_share is None:
-                raise DataNotFoundError(f"缺少计算流通市值的必要数据: {stock_code}")
-
-            # 确保类型转换为float
-            close_price_float = float(close_price)
-            float_share_float = float(float_share)
-            float_market_cap = close_price_float * float_share_float  # 万元
-            return round(float_market_cap, 2)
-
+            
+            if not daily_basic_data:
+                raise DataNotFoundError(f"股票每日基本面数据不存在: {stock_code}, {trade_date}")
+            
+            data = daily_basic_data[0]
+            circ_mv = data.get("circ_mv", 0)  # 流通市值（万元）
+            
+            if circ_mv == 0:
+                raise DataNotFoundError(f"股票流通市值数据不完整: {stock_code}")
+            
+            return round(float(circ_mv), 2)
+            
         except Exception as e:
             logger.error(
                 f"流通市值计算失败: stock_code={stock_code}, trade_date={trade_date}, error={str(e)}"
             )
             raise
 
-    async def calculate_turnover_rate(
-        self, stock_code: str, trade_date: str, period: int = 20
-    ) -> float:
+    async def calculate_turnover_rate(self, stock_code: str, trade_date: str) -> float:
         """计算换手率
 
         Args:
             stock_code: 股票代码
             trade_date: 交易日期
-            period: 计算周期（天数）
 
         Returns:
-            平均换手率（%）
+            换手率（%）
 
         Raises:
             DataNotFoundError: 当数据不存在时抛出
         """
         try:
-            # 获取历史行情数据
-            end_date = datetime.strptime(trade_date, "%Y-%m-%d")
-            start_date = end_date - timedelta(days=period + 10)  # 多取一些数据以防节假日
-
-            quotes = await self.data_client.get_stock_data(
-                stock_code, start_date.strftime("%Y-%m-%d"), trade_date
+            # 转换日期格式为tushare格式（YYYYMMDD）
+            formatted_date = trade_date.replace("-", "")
+            
+            # 获取每日基本面数据（包含换手率信息）
+            daily_basic_data = await self.data_client.get_daily_basic(
+                ts_code=stock_code, trade_date=formatted_date
             )
-
-            if not quotes or len(quotes) < period:
-                raise DataNotFoundError(
-                    f"历史行情数据不足: {stock_code}, 需要{period}天，实际{len(quotes) if quotes else 0}天"
-                )
-
-            # 计算每日换手率
-            if not quotes or len(quotes) == 0:
-                raise DataNotFoundError(f"历史行情数据不足: {stock_code}")
-
-            # 从最新数据中获取流通股本
-            float_share = quotes[-1].get("float_share")  # 流通股本（万股）
-            if float_share is None:
-                raise DataNotFoundError(f"缺少流通股本数据: {stock_code}")
-
-            # 如果流通股本为0，返回0
-            if float_share == 0:
+            
+            if not daily_basic_data:
+                raise DataNotFoundError(f"股票每日基本面数据不存在: {stock_code}, {trade_date}")
+            
+            data = daily_basic_data[0]
+            turnover_rate = data.get("turnover_rate", 0)  # 换手率（%）
+            
+            if turnover_rate is None:
                 return 0.0
-
-            turnover_rates = []
-            for quote in quotes[-period:]:  # 取最近period天的数据
-                volume = quote.get("volume", 0)  # 成交量（手）
-                # 换手率 = 成交量（股） / 流通股本（股） * 100%
-                # 1手 = 100股，流通股本单位是万股
-                daily_turnover = (volume * 100) / (float_share * 10000) * 100
-                turnover_rates.append(daily_turnover)
-
-            # 计算平均换手率
-            avg_turnover_rate = np.mean(turnover_rates)
-            return round(float(avg_turnover_rate), 4)
-
+            
+            return round(float(turnover_rate), 4)
+            
         except Exception as e:
-            logger.error(
-                f"换手率计算失败: stock_code={stock_code}, trade_date={trade_date}, error={str(e)}"
-            )
+            logger.error(f"换手率计算失败: stock_code={stock_code}, trade_date={trade_date}, error={str(e)}")
             raise
 
     async def calculate_volume_ratio(
@@ -254,12 +212,16 @@ class MarketFactorCalculator:
             DataNotFoundError: 当数据不存在时抛出
         """
         try:
-            # 获取历史行情数据
+            # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
+            
+            # 转换日期格式为tushare格式（YYYYMMDD）
+            start_date_str = start_date.strftime("%Y%m%d")
+            end_date_str = end_date.strftime("%Y%m%d")
 
-            quotes = await self.data_client.get_stock_data(
-                stock_code, start_date.strftime("%Y-%m-%d"), trade_date
+            quotes = await self.data_client.get_daily_data(
+                ts_code=stock_code, start_date=start_date_str, end_date=end_date_str
             )
 
             if not quotes or len(quotes) < period + 1:
@@ -268,8 +230,8 @@ class MarketFactorCalculator:
                 )
 
             # 获取当日成交量和历史平均成交量
-            current_volume = quotes[-1].get("volume", 0)  # 当日成交量
-            historical_volumes = [q.get("volume", 0) for q in quotes[-period-1:-1]]  # 前period天的成交量
+            current_volume = quotes[-1].get("vol", 0)  # 当日成交量（tushare中成交量字段为vol）
+            historical_volumes = [q.get("vol", 0) for q in quotes[-period-1:-1]]  # 前period天的成交量
 
             if not historical_volumes:
                 raise DataNotFoundError(f"历史成交量数据不足: {stock_code}")
@@ -305,12 +267,16 @@ class MarketFactorCalculator:
             DataNotFoundError: 当数据不存在时抛出
         """
         try:
-            # 获取历史行情数据
+            # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
+            
+            # 转换日期格式为tushare格式（YYYYMMDD）
+            start_date_str = start_date.strftime("%Y%m%d")
+            end_date_str = end_date.strftime("%Y%m%d")
 
-            quotes = await self.data_client.get_stock_data(
-                stock_code, start_date.strftime("%Y-%m-%d"), trade_date
+            quotes = await self.data_client.get_daily_data(
+                ts_code=stock_code, start_date=start_date_str, end_date=end_date_str
             )
 
             if not quotes or len(quotes) < period:
@@ -356,12 +322,16 @@ class MarketFactorCalculator:
             DataNotFoundError: 当数据不存在时抛出
         """
         try:
-            # 获取历史行情数据
+            # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
+            
+            # 转换日期格式为tushare格式（YYYYMMDD）
+            start_date_str = start_date.strftime("%Y%m%d")
+            end_date_str = end_date.strftime("%Y%m%d")
 
-            quotes = await self.data_client.get_stock_data(
-                stock_code, start_date.strftime("%Y-%m-%d"), trade_date
+            quotes = await self.data_client.get_daily_data(
+                ts_code=stock_code, start_date=start_date_str, end_date=end_date_str
             )
 
             if not quotes or len(quotes) < period + 1:
@@ -409,12 +379,16 @@ class MarketFactorCalculator:
             DataNotFoundError: 当数据不存在时抛出
         """
         try:
-            # 获取历史行情数据
+            # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
+            
+            # 转换日期格式为tushare格式（YYYYMMDD）
+            start_date_str = start_date.strftime("%Y%m%d")
+            end_date_str = end_date.strftime("%Y%m%d")
 
-            quotes = await self.data_client.get_stock_data(
-                stock_code, start_date.strftime("%Y-%m-%d"), trade_date
+            quotes = await self.data_client.get_daily_data(
+                ts_code=stock_code, start_date=start_date_str, end_date=end_date_str
             )
 
             if not quotes or len(quotes) < period + 1:
@@ -455,12 +429,16 @@ class MarketFactorCalculator:
             DataNotFoundError: 当数据不存在时抛出
         """
         try:
-            # 获取历史行情数据
+            # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
+            
+            # 转换日期格式为tushare格式（YYYYMMDD）
+            start_date_str = start_date.strftime("%Y%m%d")
+            end_date_str = end_date.strftime("%Y%m%d")
 
-            quotes = await self.data_client.get_stock_data(
-                stock_code, start_date.strftime("%Y-%m-%d"), trade_date
+            quotes = await self.data_client.get_daily_data(
+                ts_code=stock_code, start_date=start_date_str, end_date=end_date_str
             )
 
             if not quotes or len(quotes) < period + 1:

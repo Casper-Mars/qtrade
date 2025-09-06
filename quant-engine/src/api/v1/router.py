@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 from loguru import logger
 
-from ...factor_engine.api.v1 import fundamental, sentiment, technical
+from ...factor_engine.api.v1 import fundamental, market, sentiment, technical
 from .endpoints import health, system
 
 # 创建API v1路由器
@@ -22,6 +22,10 @@ api_v1_router.include_router(
 
 api_v1_router.include_router(
     sentiment.router, tags=["情绪因子"]
+)
+
+api_v1_router.include_router(
+    market.router, tags=["市场因子"]
 )
 
 logger.info("API v1路由注册完成")

@@ -556,45 +556,9 @@ class FactorService:
             trade_date = request.trade_date or datetime.now().strftime("%Y-%m-%d")
 
             # 计算市场因子
-            factors_result = {}
-            for factor_name in request.factors:
-                if factor_name == "total_market_cap":
-                    value = await self.market_calculator.calculate_market_cap(
-                        request.stock_code, trade_date
-                    )
-                elif factor_name == "tradable_market_cap":
-                    value = await self.market_calculator.calculate_float_market_cap(
-                        request.stock_code, trade_date
-                    )
-                elif factor_name == "turnover_rate":
-                    value = await self.market_calculator.calculate_turnover_rate(
-                        request.stock_code, trade_date
-                    )
-                elif factor_name == "volume_ratio":
-                    value = await self.market_calculator.calculate_volume_ratio(
-                        request.stock_code, trade_date
-                    )
-                elif factor_name == "price_volatility":
-                    value = await self.market_calculator.calculate_price_volatility(
-                        request.stock_code, trade_date
-                    )
-                elif factor_name == "return_volatility":
-                    value = await self.market_calculator.calculate_return_volatility(
-                        request.stock_code, trade_date
-                    )
-                elif factor_name == "price_momentum":
-                    value = await self.market_calculator.calculate_price_momentum(
-                        request.stock_code, trade_date
-                    )
-                elif factor_name == "return_momentum":
-                    value = await self.market_calculator.calculate_return_momentum(
-                        request.stock_code, trade_date
-                    )
-                else:
-                    logger.warning(f"未知的市场因子: {factor_name}")
-                    continue
-
-                factors_result[factor_name] = value
+            factors_result = await self.market_calculator.calculate_factors(
+                request.stock_code, request.factors, trade_date
+            )
 
             # 保存计算结果到数据库
             await self._save_market_factors(

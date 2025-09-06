@@ -8,7 +8,6 @@ dependencies = [
     # Web框架
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
-    
     # 数据库和缓存
     "sqlalchemy>=2.0.0",
     "pymysql>=1.1.0",
@@ -16,32 +15,26 @@ dependencies = [
     "greenlet>=3.0.0",
     "redis>=5.0.0",
     "alembic>=1.12.0",
-    
     # HTTP客户端
     "httpx>=0.25.0",
-    
     # 数据处理
     "pandas>=2.1.0",
     "numpy>=1.24.0",
-    
     # 金融数据源
     "tushare>=1.2.89",
-    
     # NLP处理
     "transformers>=4.35.0",
     "torch>=2.1.0",
-    
     # 任务调度
     "apscheduler>=3.10.0",
-    
     # 配置管理
     "pydantic>=2.4.0",
     "pydantic-settings>=2.0.0",
-    
     # 日志和工具
     "loguru>=0.7.0",
     "python-multipart>=0.0.6",
     "psutil>=5.9.0",
+    "requests[socks]>=2.32.5",
 ]
 
 [project.optional-dependencies]

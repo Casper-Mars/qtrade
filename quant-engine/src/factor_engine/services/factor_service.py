@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-from ...clients.data_collector_client import DataCollectorClient
+from ...clients.tushare_client import TushareClient
 from ..calculators.fundamental import FundamentalFactorCalculator
 from ..calculators.market import MarketFactorCalculator
 from ..calculators.sentiment import SentimentFactorCalculator
@@ -48,12 +48,12 @@ class FactorService:
     提供统一的因子计算和管理服务
     """
 
-    def __init__(self, factor_dao: FactorDAO, data_client: DataCollectorClient):
+    def __init__(self, factor_dao: FactorDAO, data_client: TushareClient):
         """初始化因子服务
 
         Args:
             factor_dao: 因子数据访问对象
-            data_client: 数据采集客户端
+            data_client: Tushare数据客户端
         """
         self.factor_dao = factor_dao
         self.data_client = data_client

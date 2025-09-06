@@ -11,8 +11,9 @@
 """
 
 import logging
+from typing import Dict, Any
 
-from ...clients.data_collector_client import DataCollectorClient
+from ...clients.tushare_client import TushareClient
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,11 @@ class FundamentalFactorCalculator:
     提供各种基本面财务指标的计算功能
     """
 
-    def __init__(self, data_client: DataCollectorClient) -> None:
+    def __init__(self, data_client: TushareClient) -> None:
         """初始化基本面因子计算器
 
         Args:
-            data_client: 数据采集客户端
+            data_client: Tushare数据客户端
         """
         self.data_client = data_client
         self.supported_factors = {
@@ -346,59 +347,153 @@ class FundamentalFactorCalculator:
 
     async def _get_financial_data(
         self, stock_code: str, period: str, report_type: str = "quarterly"
-    ) -> dict | None:
+    ) -> Dict[str, Any] | None:
         """获取财务数据
 
         Args:
             stock_code: 股票代码
-            period: 报告期
-            report_type: 报告类型
+            period: 报告期，如2023Q3或2023
+            report_type: 报告类型，quarterly或annual
 
         Returns:
             财务数据字典
         """
         try:
-            # 调用data-collector服务获取财务数据
+            # 转换股票代码格式（如000001 -> 000001.SZ）
+            ts_code = self._convert_stock_code(stock_code)
+            
+            # 解析期间
             if report_type == "quarterly":
-                # 获取财务数据
-                financial_data_result = await self.data_client.get_financial_data(
-                    symbol=stock_code, report_type=report_type
-                )
-
-                if not financial_data_result:
-                    return None
-
-                # 使用获取的财务数据
-                financial_data: dict[str, float] = financial_data_result[0] if financial_data_result else {}
-
-                return financial_data
+                # 解析季度期间，如2023Q3 -> 20230930
+                end_date = self._parse_quarter_period(period)
+                period_type = 'Q'
             else:
-                # 年度数据处理逻辑
-                return await self._get_annual_financial_data(stock_code, period)
-
+                # 年度数据
+                end_date = f"{period}1231"
+                period_type = 'A'
+            
+            # 获取利润表数据
+            income_data = await self.data_client.get_income_statement(
+                ts_code=ts_code,
+                end_date=end_date,
+                period=period_type
+            )
+            
+            # 获取资产负债表数据
+            balance_data = await self.data_client.get_balance_sheet(
+                ts_code=ts_code,
+                end_date=end_date,
+                period=period_type
+            )
+            
+            # 获取现金流量表数据
+            cashflow_data = await self.data_client.get_cashflow_statement(
+                ts_code=ts_code,
+                end_date=end_date,
+                period=period_type
+            )
+            
+            # 获取财务指标数据
+            indicator_data = await self.data_client.get_financial_indicators(
+                ts_code=ts_code,
+                end_date=end_date,
+                period=period_type
+            )
+            
+            # 合并财务数据
+            financial_data = {}
+            
+            # 处理利润表数据
+            if not income_data.empty:
+                latest_income = income_data.iloc[0].to_dict()
+                financial_data.update({
+                    'revenue': latest_income.get('revenue', 0),  # 营业收入
+                    'total_profit': latest_income.get('total_profit', 0),  # 利润总额
+                    'n_income': latest_income.get('n_income', 0),  # 净利润
+                    'operate_profit': latest_income.get('operate_profit', 0),  # 营业利润
+                    'oper_cost': latest_income.get('oper_cost', 0),  # 营业成本
+                })
+            
+            # 处理资产负债表数据
+            if not balance_data.empty:
+                latest_balance = balance_data.iloc[0].to_dict()
+                financial_data.update({
+                    'total_assets': latest_balance.get('total_assets', 0),  # 总资产
+                    'total_liab': latest_balance.get('total_liab', 0),  # 总负债
+                    'total_hldr_eqy_exc_min_int': latest_balance.get('total_hldr_eqy_exc_min_int', 0),  # 股东权益
+                    'total_cur_assets': latest_balance.get('total_cur_assets', 0),  # 流动资产
+                    'total_cur_liab': latest_balance.get('total_cur_liab', 0),  # 流动负债
+                })
+            
+            # 处理现金流量表数据
+            if not cashflow_data.empty:
+                latest_cashflow = cashflow_data.iloc[0].to_dict()
+                financial_data.update({
+                    'n_cashflow_act': latest_cashflow.get('n_cashflow_act', 0),  # 经营活动现金流
+                })
+            
+            # 处理财务指标数据
+            if not indicator_data.empty:
+                latest_indicator = indicator_data.iloc[0].to_dict()
+                financial_data.update({
+                    'roe': latest_indicator.get('roe', 0),  # ROE
+                    'roa': latest_indicator.get('roa', 0),  # ROA
+                    'gross_margin': latest_indicator.get('grossprofit_margin', 0),  # 毛利率
+                    'netprofit_margin': latest_indicator.get('netprofit_margin', 0),  # 净利率
+                    'debt_to_assets': latest_indicator.get('debt_to_assets', 0),  # 资产负债率
+                    'current_ratio': latest_indicator.get('current_ratio', 0),  # 流动比率
+                })
+            
+            return financial_data if financial_data else None
+            
         except Exception as e:
             logger.error(f"获取财务数据失败: {e}")
             return None
-
-    async def _get_annual_financial_data(
-        self, stock_code: str, period: str
-    ) -> dict | None:
-        """获取年度财务数据
-
+    
+    def _convert_stock_code(self, stock_code: str) -> str:
+        """转换股票代码格式
+        
         Args:
-            stock_code: 股票代码
-            period: 年度期间，如2023
-
+            stock_code: 原始股票代码，如000001
+            
         Returns:
-            年度财务数据
+            Tushare格式的股票代码，如000001.SZ
         """
-        try:
-            # 获取该年度的Q4数据作为年度数据
-            q4_period = f"{period}Q4"
-            return await self._get_financial_data(stock_code, q4_period, "quarterly")
-        except Exception as e:
-            logger.error(f"获取年度财务数据失败: {e}")
-            return None
+        if '.' in stock_code:
+            return stock_code
+            
+        # 根据股票代码判断交易所
+        if stock_code.startswith('6'):
+            return f"{stock_code}.SH"  # 上海证券交易所
+        elif stock_code.startswith(('0', '3')):
+            return f"{stock_code}.SZ"  # 深圳证券交易所
+        else:
+            # 默认深圳
+            return f"{stock_code}.SZ"
+    
+    def _parse_quarter_period(self, period: str) -> str:
+        """解析季度期间
+        
+        Args:
+            period: 季度期间，如2023Q3
+            
+        Returns:
+            结束日期，如20230930
+        """
+        if 'Q' not in period:
+            return f"{period}1231"  # 如果不是季度格式，默认为年末
+            
+        year, quarter = period.split('Q')
+        quarter_end_dates = {
+            '1': '0331',
+            '2': '0630', 
+            '3': '0930',
+            '4': '1231'
+        }
+        
+        return f"{year}{quarter_end_dates.get(quarter, '1231')}"
+
+
 
     def _get_previous_period(self, period: str) -> str:
         """获取上一期间

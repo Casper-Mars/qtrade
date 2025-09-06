@@ -23,6 +23,16 @@ class TushareClient:
         self._api: Any | None = None
         self._initialized = False
 
+    async def __aenter__(self) -> "TushareClient":
+        """异步上下文管理器入口"""
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """异步上下文管理器退出"""
+        # Tushare客户端不需要特殊的清理操作
+        pass
+
     async def initialize(self) -> None:
         """初始化Tushare API连接"""
         try:
@@ -52,7 +62,11 @@ class TushareClient:
             if self._api is None:
                 raise DataSourceError("API未初始化")
             api = self._api  # 类型断言
-            result = await self._execute_with_retry(
+            
+            # 直接调用API，不使用重试机制避免递归
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, 
                 lambda: api.trade_cal(exchange='SSE', start_date='20240101', end_date='20240102')
             )
             if result is None or len(result) == 0:

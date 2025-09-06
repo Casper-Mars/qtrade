@@ -36,7 +36,10 @@ class TechnicalFactorRequest(BaseFactorModel):
 
     @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+        # 支持格式：000001.SZ, 600000.SH, SH600000, SZ000001, 000001, 600000
+        if not (v.isdigit() or 
+                v.endswith(".SZ") or v.endswith(".SH") or 
+                v.startswith("SH") or v.startswith("SZ")):
             raise ValueError("股票代码格式不正确")
         return v
 
@@ -80,9 +83,10 @@ class BatchTechnicalFactorRequest(BaseFactorModel):
     @validator("stock_codes")
     def validate_stock_codes(cls, v: list[str]) -> list[str]:
         for code in v:
-            if not code.isdigit() and not (
-                code.startswith("SH") or code.startswith("SZ")
-            ):
+            # 支持格式：000001.SZ, 600000.SH, SH600000, SZ000001, 000001, 600000
+            if not (code.isdigit() or 
+                    code.endswith(".SZ") or code.endswith(".SH") or 
+                    code.startswith("SH") or code.startswith("SZ")):
                 raise ValueError(f"股票代码{code}格式不正确")
         return v
 

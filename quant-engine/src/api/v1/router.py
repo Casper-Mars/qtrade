@@ -14,14 +14,14 @@ api_v1_router.include_router(health.router, prefix="/health", tags=["健康检�
 
 api_v1_router.include_router(system.router, prefix="/system", tags=["系统信息"])
 
-api_v1_router.include_router(technical.router, prefix="/technical", tags=["技术因子"])
+api_v1_router.include_router(technical.router, tags=["技术因子"])
 
 api_v1_router.include_router(
-    fundamental.router, prefix="/fundamental", tags=["基本面因子"]
+    fundamental.router, tags=["基本面因子"]
 )
 
 api_v1_router.include_router(
-    sentiment.router, prefix="/sentiment", tags=["情绪因子"]
+    sentiment.router, tags=["情绪因子"]
 )
 
 logger.info("API v1路由注册完成")

@@ -123,7 +123,7 @@ class FactorCombinationDAO:
 
                 result = await session.execute(select_sql, {"config_id": config_id})
                 row = result.fetchone()
-                
+
                 logger.info(f"查询配置 {config_id}, 结果: {row}")
 
                 if not row:

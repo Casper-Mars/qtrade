@@ -7,8 +7,8 @@
 - 权重配置管理
 """
 
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 from uuid import uuid4
 
 from ..dao.factor_combination_dao import FactorCombinationDAO
@@ -262,18 +262,23 @@ class FactorCombinationManager:
         # 保存到数据库
         try:
             # 将FactorCombinationData转换为FactorCombination对象
-            from ..models.factor_combination import FactorCombination, FactorConfig, FactorType
             from datetime import datetime
-            
+
+            from ..models.factor_combination import (
+                FactorCombination,
+                FactorConfig,
+                FactorType,
+            )
+
             # 创建因子配置列表
             factors = []
-            
+
             # 添加技术因子
             from decimal import Decimal
             for factor_name in technical_factors:
                 weight = factor_weights.get(factor_name, 0.0)
                 factor_config = FactorConfig(
-                    id=str(uuid.uuid4()),
+                    id=uuid.uuid4(),
                     name=factor_name,
                     factor_type=FactorType.TECHNICAL,
                     weight=Decimal(str(weight)),
@@ -284,12 +289,12 @@ class FactorCombinationManager:
                     updated_at=datetime.now()
                 )
                 factors.append(factor_config)
-            
+
             # 添加基本面因子
             for factor_name in fundamental_factors:
                 weight = factor_weights.get(factor_name, 0.0)
                 factor_config = FactorConfig(
-                    id=str(uuid.uuid4()),
+                    id=uuid.uuid4(),
                     name=factor_name,
                     factor_type=FactorType.FUNDAMENTAL,
                     weight=Decimal(str(weight)),
@@ -300,12 +305,12 @@ class FactorCombinationManager:
                     updated_at=datetime.now()
                 )
                 factors.append(factor_config)
-            
+
             # 添加情绪因子
             for factor_name in sentiment_factors:
                 weight = factor_weights.get(factor_name, 0.0)
                 factor_config = FactorConfig(
-                    id=str(uuid.uuid4()),
+                    id=uuid.uuid4(),
                     name=factor_name,
                     factor_type=FactorType.SENTIMENT,
                     weight=Decimal(str(weight)),
@@ -316,10 +321,10 @@ class FactorCombinationManager:
                     updated_at=datetime.now()
                 )
                 factors.append(factor_config)
-            
+
             # 创建FactorCombination对象
             combination = FactorCombination(
-                id=str(uuid.uuid4()),
+                id=uuid.uuid4(),
                 name=stock_code,  # 使用股票代码作为名称
                 description=description or f"{stock_code}的因子组合配置",
                 factors=factors,
@@ -329,18 +334,18 @@ class FactorCombinationManager:
                 created_at=datetime.now(),
                 updated_at=datetime.now()
             )
-            
+
             # 保存到数据库
             saved_config_id = await self.dao.save_config(combination)
-            
+
             # 更新返回数据中的config_id
             config_data.config_id = saved_config_id
-            
+
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"保存因子组合配置失败: {e}")
-            raise ValueError(f"保存配置失败: {e}")
+            raise ValueError(f"保存配置失败: {e}") from e
 
         return config_data
 
@@ -358,25 +363,25 @@ class FactorCombinationManager:
             combination = await self.dao.get_config(config_id)
             if not combination:
                 return None
-            
+
             # 转换为FactorCombinationData
             technical_factors = []
             fundamental_factors = []
             sentiment_factors = []
             factor_weights = {}
-            
+
             from ..models.factor_combination import FactorType
-            
+
             for factor in combination.factors:
                 factor_weights[factor.name] = factor.weight
-                
+
                 if factor.factor_type == FactorType.TECHNICAL:
                     technical_factors.append(factor.name)
                 elif factor.factor_type == FactorType.FUNDAMENTAL:
                     fundamental_factors.append(factor.name)
                 elif factor.factor_type == FactorType.SENTIMENT:
                     sentiment_factors.append(factor.name)
-            
+
             return FactorCombinationData(
                 config_id=config_id,
                 stock_code=combination.name,  # 使用name作为股票代码
@@ -384,12 +389,12 @@ class FactorCombinationManager:
                 technical_factors=technical_factors,
                 fundamental_factors=fundamental_factors,
                 sentiment_factors=sentiment_factors,
-                factor_weights=factor_weights,
+                factor_weights={k: float(v) for k, v in factor_weights.items()},
                 factor_count=len(combination.factors),
                 created_at=combination.created_at.isoformat(),
                 updated_at=combination.updated_at.isoformat(),
             )
-            
+
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
@@ -419,14 +424,14 @@ class FactorCombinationManager:
                 logger = logging.getLogger(__name__)
                 logger.error(f"配置不存在: {config_id}")
                 return None
-            
+
             # 准备更新的数据
             technical_factors = update_data.get("technical_factors", [])
             fundamental_factors = update_data.get("fundamental_factors", [])
             sentiment_factors = update_data.get("sentiment_factors", [])
             factor_weights = update_data.get("factor_weights", {})
             description = update_data.get("description", existing_config.description)
-            
+
             # 验证权重配置
             if factor_weights:
                 weights_validation = await self.validator.validate_weights(factor_weights)
@@ -434,10 +439,10 @@ class FactorCombinationManager:
                     raise ValueError(
                         f"权重配置验证失败: {'; '.join(weights_validation.errors)}"
                     )
-            
+
             # 构建新的因子配置列表
             factors = []
-            
+
             # 添加技术因子
             for factor_name in technical_factors:
                 factor = FactorConfig(
@@ -452,7 +457,7 @@ class FactorCombinationManager:
                     updated_at=datetime.now()
                 )
                 factors.append(factor)
-            
+
             # 添加基本面因子
             for factor_name in fundamental_factors:
                 factor = FactorConfig(
@@ -467,7 +472,7 @@ class FactorCombinationManager:
                     updated_at=datetime.now()
                 )
                 factors.append(factor)
-            
+
             # 添加情绪因子
             for factor_name in sentiment_factors:
                 factor = FactorConfig(
@@ -482,7 +487,7 @@ class FactorCombinationManager:
                     updated_at=datetime.now()
                 )
                 factors.append(factor)
-            
+
             # 创建更新后的FactorCombination对象
             updated_combination = FactorCombination(
                 id=existing_config.id,
@@ -495,12 +500,12 @@ class FactorCombinationManager:
                 created_at=existing_config.created_at,
                 updated_at=datetime.now()
             )
-            
+
             # 更新数据库
             success = await self.dao.update_config(config_id, updated_combination)
             if not success:
                 return None
-            
+
             # 返回更新后的配置数据
             return FactorCombinationData(
                 config_id=config_id,
@@ -514,12 +519,12 @@ class FactorCombinationManager:
                 created_at=existing_config.created_at.isoformat(),
                 updated_at=datetime.now().isoformat()
             )
-            
+
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"更新因子组合配置失败: {e}")
-            raise ValueError(f"更新配置失败: {e}")
+            raise ValueError(f"更新配置失败: {e}") from e
 
     async def delete_combination(self, config_id: str) -> bool:
         """删除因子组合配置

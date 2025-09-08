@@ -6,23 +6,22 @@
 - 批量计算基本面因子
 """
 
-from datetime import datetime
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
-from sqlalchemy.orm import Session
 from redis import Redis
+from sqlalchemy.orm import Session
 
-from src.factor_engine.models.schemas import (
-    FundamentalFactorRequest,
-    BatchFundamentalFactorRequest,
-    FundamentalFactorResponse,
-    BatchFundamentalFactorResponse,
-)
-from src.factor_engine.services.factor_service import FactorService
-from src.factor_engine.dao.factor_dao import FactorDAO
 from src.clients.tushare_client import TushareClient
 from src.config.database import get_db_session
 from src.config.redis import get_redis_client
+from src.factor_engine.dao.factor_dao import FactorDAO
+from src.factor_engine.models.schemas import (
+    BatchFundamentalFactorRequest,
+    BatchFundamentalFactorResponse,
+    FundamentalFactorRequest,
+    FundamentalFactorResponse,
+)
+from src.factor_engine.services.factor_service import FactorService
 from src.utils.exceptions import DataNotFoundError, FactorCalculationException
 
 router = APIRouter(prefix="/fundamental", tags=["fundamental-factors"])
@@ -57,7 +56,7 @@ async def calculate_fundamental_factors(
         async with TushareClient() as data_client:
             factor_dao = FactorDAO(db_session, redis_client)
             factor_service = FactorService(factor_dao, data_client)
-            
+
             # 调用因子服务计算基本面因子
             result = await factor_service.calculate_fundamental_factors(request)
 
@@ -110,7 +109,7 @@ async def get_fundamental_factor_history(
         async with TushareClient() as data_client:
             factor_dao = FactorDAO(db_session, redis_client)
             factor_service = FactorService(factor_dao, data_client)
-            
+
             result = await factor_service.get_fundamental_factor_history(
                 stock_code=stock_code,
                 factor_name=factor_name,
@@ -160,7 +159,7 @@ async def batch_calculate_fundamental_factors(
         async with TushareClient() as data_client:
             factor_dao = FactorDAO(db_session, redis_client)
             factor_service = FactorService(factor_dao, data_client)
-            
+
             # 调用因子服务批量计算基本面因子
             result = await factor_service.batch_calculate_fundamental_factors(request)
 

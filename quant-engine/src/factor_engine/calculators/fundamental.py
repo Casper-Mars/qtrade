@@ -11,7 +11,7 @@
 """
 
 import logging
-from typing import Dict, Any
+from typing import Any
 
 from ...clients.tushare_client import TushareClient
 
@@ -347,7 +347,7 @@ class FundamentalFactorCalculator:
 
     async def _get_financial_data(
         self, stock_code: str, period: str, report_type: str = "quarterly"
-    ) -> Dict[str, Any] | None:
+    ) -> dict[str, Any] | None:
         """获取财务数据
 
         Args:
@@ -361,7 +361,7 @@ class FundamentalFactorCalculator:
         try:
             # 转换股票代码格式（如000001 -> 000001.SZ）
             ts_code = self._convert_stock_code(stock_code)
-            
+
             # 解析期间
             if report_type == "quarterly":
                 # 解析季度期间，如2023Q3 -> 20230930
@@ -371,38 +371,38 @@ class FundamentalFactorCalculator:
                 # 年度数据
                 end_date = f"{period}1231"
                 period_type = 'A'
-            
+
             # 获取利润表数据
             income_data = await self.data_client.get_income_statement(
                 ts_code=ts_code,
                 end_date=end_date,
                 period=period_type
             )
-            
+
             # 获取资产负债表数据
             balance_data = await self.data_client.get_balance_sheet(
                 ts_code=ts_code,
                 end_date=end_date,
                 period=period_type
             )
-            
+
             # 获取现金流量表数据
             cashflow_data = await self.data_client.get_cashflow_statement(
                 ts_code=ts_code,
                 end_date=end_date,
                 period=period_type
             )
-            
+
             # 获取财务指标数据
             indicator_data = await self.data_client.get_financial_indicators(
                 ts_code=ts_code,
                 end_date=end_date,
                 period=period_type
             )
-            
+
             # 合并财务数据
             financial_data = {}
-            
+
             # 处理利润表数据
             if not income_data.empty:
                 latest_income = income_data.iloc[0].to_dict()
@@ -413,7 +413,7 @@ class FundamentalFactorCalculator:
                     'operate_profit': latest_income.get('operate_profit', 0),  # 营业利润
                     'oper_cost': latest_income.get('oper_cost', 0),  # 营业成本
                 })
-            
+
             # 处理资产负债表数据
             if not balance_data.empty:
                 latest_balance = balance_data.iloc[0].to_dict()
@@ -424,14 +424,14 @@ class FundamentalFactorCalculator:
                     'total_cur_assets': latest_balance.get('total_cur_assets', 0),  # 流动资产
                     'total_cur_liab': latest_balance.get('total_cur_liab', 0),  # 流动负债
                 })
-            
+
             # 处理现金流量表数据
             if not cashflow_data.empty:
                 latest_cashflow = cashflow_data.iloc[0].to_dict()
                 financial_data.update({
                     'n_cashflow_act': latest_cashflow.get('n_cashflow_act', 0),  # 经营活动现金流
                 })
-            
+
             # 处理财务指标数据
             if not indicator_data.empty:
                 latest_indicator = indicator_data.iloc[0].to_dict()
@@ -443,25 +443,25 @@ class FundamentalFactorCalculator:
                     'debt_to_assets': latest_indicator.get('debt_to_assets', 0),  # 资产负债率
                     'current_ratio': latest_indicator.get('current_ratio', 0),  # 流动比率
                 })
-            
+
             return financial_data if financial_data else None
-            
+
         except Exception as e:
             logger.error(f"获取财务数据失败: {e}")
             return None
-    
+
     def _convert_stock_code(self, stock_code: str) -> str:
         """转换股票代码格式
-        
+
         Args:
             stock_code: 原始股票代码，如000001
-            
+
         Returns:
             Tushare格式的股票代码，如000001.SZ
         """
         if '.' in stock_code:
             return stock_code
-            
+
         # 根据股票代码判断交易所
         if stock_code.startswith('6'):
             return f"{stock_code}.SH"  # 上海证券交易所
@@ -470,27 +470,27 @@ class FundamentalFactorCalculator:
         else:
             # 默认深圳
             return f"{stock_code}.SZ"
-    
+
     def _parse_quarter_period(self, period: str) -> str:
         """解析季度期间
-        
+
         Args:
             period: 季度期间，如2023Q3
-            
+
         Returns:
             结束日期，如20230930
         """
         if 'Q' not in period:
             return f"{period}1231"  # 如果不是季度格式，默认为年末
-            
+
         year, quarter = period.split('Q')
         quarter_end_dates = {
             '1': '0331',
-            '2': '0630', 
+            '2': '0630',
             '3': '0930',
             '4': '1231'
         }
-        
+
         return f"{year}{quarter_end_dates.get(quarter, '1231')}"
 
 

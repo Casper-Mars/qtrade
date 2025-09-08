@@ -94,23 +94,23 @@ class MarketFactorCalculator:
         try:
             # 转换日期格式为tushare格式（YYYYMMDD）
             formatted_date = trade_date.replace("-", "")
-            
+
             # 获取每日基本面数据（包含市值信息）
             daily_basic_data = await self.data_client.get_daily_basic(
                 ts_code=stock_code, trade_date=formatted_date
             )
-            
+
             if not daily_basic_data:
                 raise DataNotFoundError(f"股票每日基本面数据不存在: {stock_code}, {trade_date}")
-            
+
             data = daily_basic_data[0]
             total_mv = data.get("total_mv", 0)  # 总市值（万元）
-            
+
             if total_mv == 0:
                 raise DataNotFoundError(f"股票总市值数据不完整: {stock_code}")
-            
+
             return round(float(total_mv), 2)
-            
+
         except Exception as e:
             logger.error(
                 f"总市值计算失败: stock_code={stock_code}, trade_date={trade_date}, error={str(e)}"
@@ -135,23 +135,23 @@ class MarketFactorCalculator:
         try:
             # 转换日期格式为tushare格式（YYYYMMDD）
             formatted_date = trade_date.replace("-", "")
-            
+
             # 获取每日基本面数据（包含流通市值信息）
             daily_basic_data = await self.data_client.get_daily_basic(
                 ts_code=stock_code, trade_date=formatted_date
             )
-            
+
             if not daily_basic_data:
                 raise DataNotFoundError(f"股票每日基本面数据不存在: {stock_code}, {trade_date}")
-            
+
             data = daily_basic_data[0]
             circ_mv = data.get("circ_mv", 0)  # 流通市值（万元）
-            
+
             if circ_mv == 0:
                 raise DataNotFoundError(f"股票流通市值数据不完整: {stock_code}")
-            
+
             return round(float(circ_mv), 2)
-            
+
         except Exception as e:
             logger.error(
                 f"流通市值计算失败: stock_code={stock_code}, trade_date={trade_date}, error={str(e)}"
@@ -174,23 +174,23 @@ class MarketFactorCalculator:
         try:
             # 转换日期格式为tushare格式（YYYYMMDD）
             formatted_date = trade_date.replace("-", "")
-            
+
             # 获取每日基本面数据（包含换手率信息）
             daily_basic_data = await self.data_client.get_daily_basic(
                 ts_code=stock_code, trade_date=formatted_date
             )
-            
+
             if not daily_basic_data:
                 raise DataNotFoundError(f"股票每日基本面数据不存在: {stock_code}, {trade_date}")
-            
+
             data = daily_basic_data[0]
             turnover_rate = data.get("turnover_rate", 0)  # 换手率（%）
-            
+
             if turnover_rate is None:
                 return 0.0
-            
+
             return round(float(turnover_rate), 4)
-            
+
         except Exception as e:
             logger.error(f"换手率计算失败: stock_code={stock_code}, trade_date={trade_date}, error={str(e)}")
             raise
@@ -215,7 +215,7 @@ class MarketFactorCalculator:
             # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
-            
+
             # 转换日期格式为tushare格式（YYYYMMDD）
             start_date_str = start_date.strftime("%Y%m%d")
             end_date_str = end_date.strftime("%Y%m%d")
@@ -270,7 +270,7 @@ class MarketFactorCalculator:
             # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
-            
+
             # 转换日期格式为tushare格式（YYYYMMDD）
             start_date_str = start_date.strftime("%Y%m%d")
             end_date_str = end_date.strftime("%Y%m%d")
@@ -325,7 +325,7 @@ class MarketFactorCalculator:
             # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
-            
+
             # 转换日期格式为tushare格式（YYYYMMDD）
             start_date_str = start_date.strftime("%Y%m%d")
             end_date_str = end_date.strftime("%Y%m%d")
@@ -382,7 +382,7 @@ class MarketFactorCalculator:
             # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
-            
+
             # 转换日期格式为tushare格式（YYYYMMDD）
             start_date_str = start_date.strftime("%Y%m%d")
             end_date_str = end_date.strftime("%Y%m%d")
@@ -432,7 +432,7 @@ class MarketFactorCalculator:
             # 获取历史日线数据
             end_date = datetime.strptime(trade_date, "%Y-%m-%d")
             start_date = end_date - timedelta(days=period + 10)
-            
+
             # 转换日期格式为tushare格式（YYYYMMDD）
             start_date_str = start_date.strftime("%Y%m%d")
             end_date_str = end_date.strftime("%Y%m%d")

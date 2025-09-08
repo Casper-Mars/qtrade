@@ -71,7 +71,7 @@
 
 ## 1. 系统架构概览
 
-### 1.1 整体架构图
+### 1.1 基于Backtrader的整体架构图
 
 ```mermaid
 graph TB
@@ -81,8 +81,12 @@ graph TB
     end
     
     subgraph "quant-engine服务"
-        subgraph "回测框架模块 (新增)"
-            BE["回测引擎"]
+        subgraph "回测框架模块 (基于Backtrader)"
+            BE["BacktestEngine\n(封装Cerebro)"]
+            Cerebro["bt.Cerebro\n(Backtrader核心)"]
+            Strategy["FactorStrategy\n(继承bt.Strategy)"]
+            DataFeed["FactorDataFeed\n(继承bt.DataBase)"]
+            Analyzer["PerformanceAnalyzer\n(继承bt.Analyzer)"]
             FCM["因子组合管理"]
             TM["任务管理器"]
         end
@@ -121,9 +125,14 @@ graph TB
     TS --> FS
     DC --> SC
     
-    %% 回测框架内部流
-    BE --> FS
+    %% Backtrader回测框架内部流
+    BE --> Cerebro
     BE --> FCM
+    Cerebro --> Strategy
+    Cerebro --> DataFeed
+    Cerebro --> Analyzer
+    Strategy --> FS
+    DataFeed --> FS
     TM --> BE
     
     %% 数据访问
@@ -144,13 +153,33 @@ graph TB
     MongoDB --> SC
 ```
 
-### 1.2 核心模块概述
+### 1.2 基于Backtrader的核心模块概述
 
 **回测引擎（BacktestEngine）**
-- 历史数据回放：按时间顺序回放历史数据，确保无未来信息泄露
-- 因子组合测试：基于不同因子组合生成股票评分和交易信号
-- 收益计算：计算基于交易信号的投资组合收益
-- 风险控制：集成基本的风险控制机制
+- Cerebro封装：封装Backtrader的Cerebro引擎，提供业务层接口
+- 策略配置：配置FactorStrategy和相关参数
+- 数据源管理：管理FactorDataFeed数据源
+- 分析器集成：集成Backtrader内置和自定义分析器
+- 结果提取：从Backtrader结果中提取业务所需数据
+
+**因子策略（FactorStrategy）**
+- 继承bt.Strategy：基于Backtrader策略框架
+- 因子计算：集成因子服务，获取实时因子数据
+- 信号生成：基于因子组合权重计算交易信号
+- 订单管理：通过Backtrader的buy/sell接口执行交易
+- 风险控制：实施仓位管理和风险控制策略
+
+**因子数据源（FactorDataFeed）**
+- 继承bt.DataBase：基于Backtrader数据源框架
+- 价格数据：从Tushare获取历史价格数据
+- 因子集成：集成因子服务，提供因子数据访问
+- 数据同步：确保价格和因子数据的时间同步
+
+**绩效分析器（PerformanceAnalyzer）**
+- 继承bt.Analyzer：基于Backtrader分析器框架
+- 实时监控：实时计算和更新绩效指标
+- 自定义指标：扩展Backtrader内置分析器功能
+- 结果输出：提供标准化的绩效分析结果
 
 **因子组合管理（FactorCombinationManager）**
 - 因子配置管理：管理用户自定义的因子组合配置
@@ -158,10 +187,9 @@ graph TB
 - 配置存储服务：持久化存储因子组合配置
 - 配置验证器：验证因子配置和权重配置的有效性
 
-
 **任务管理器（TaskManager）**
 - 任务调度：管理回测任务的创建、调度和执行
-- 进度监控：跟踪回测任务的执行进度
+- Backtrader集成：协调Backtrader引擎的执行
 - 资源管理：管理计算资源的分配和使用
 - 结果收集：收集和汇总回测结果
 
@@ -249,48 +277,75 @@ sequenceDiagram
 - **历史模拟模式**：使用历史时点的真实因子数据进行回测，确保回测的真实性
 - **模型验证模式**：使用当前最新因子模型对历史数据进行回测，验证模型有效性
 
-#### 2.1.2 模块架构
+#### 2.1.2 基于Backtrader的模块架构
 
 ```mermaid
 classDiagram
     class BacktestEngine {
         +run_backtest(config: BacktestConfig) BacktestResult
-        +replay_historical_data(start_date, end_date) Iterator
-        +generate_signals(factor_scores) TradingSignals
-        +calculate_returns(signals, prices) Returns
-        -validate_config(config) bool
-        -check_data_integrity(data) bool
+        +run_factor_combination_test(combinations) List[BacktestResult]
+        -cerebro: bt.Cerebro
+        -setup_cerebro(config) void
+        -create_strategy(factor_config) FactorStrategy
     }
     
-    class DataReplayer {
-        +replay_data(start_date, end_date) Iterator
-        +get_snapshot(date) DataSnapshot
-        +validate_timeline(data) bool
-        -prevent_lookahead_bias(data) bool
+    class FactorStrategy {
+        <<bt.Strategy>>
+        +factor_combination: BacktestFactorConfig
+        +factor_service: FactorService
+        +next() void
+        +notify_order(order) void
+        +notify_trade(trade) void
+        -calculate_factor_score() float
+        -generate_trading_signal() TradingSignal
     }
     
-    class SignalGenerator {
-        +generate_signals(scores, threshold) Signals
-        +apply_filters(signals) Signals
-        +calculate_position_size(signals) Positions
+    class FactorDataFeed {
+        <<bt.feeds.DataBase>>
+        +factor_service: FactorService
+        +stock_code: str
+        +_load() bool
+        +_getdata() bool
     }
     
-    class ReturnCalculator {
-        +calculate_portfolio_returns(positions, prices) Returns
-        +calculate_transaction_costs(trades) Costs
-        +apply_risk_controls(positions) Positions
+    class PerformanceAnalyzer {
+        <<bt.Analyzer>>
+        +get_analysis() Dict
+        +create_analysis() void
+        +notify_cashvalue(cash, value) void
     }
     
-    BacktestEngine --> DataReplayer
-    BacktestEngine --> SignalGenerator
-    BacktestEngine --> ReturnCalculator
+    class BacktraderCerebro {
+        <<bt.Cerebro>>
+        +addstrategy(strategy) void
+        +adddata(data) void
+        +addanalyzer(analyzer) void
+        +run() List[Strategy]
+    }
+    
+    BacktestEngine --> BacktraderCerebro
+    BacktestEngine --> FactorStrategy
+    BacktestEngine --> FactorDataFeed
+    BacktestEngine --> PerformanceAnalyzer
+    FactorStrategy --> FactorService
+    FactorDataFeed --> FactorService
+    BacktraderCerebro --> FactorStrategy
+    BacktraderCerebro --> FactorDataFeed
+    BacktraderCerebro --> PerformanceAnalyzer
 ```
 
-#### 2.1.3 核心接口设计
+#### 2.1.3 基于Backtrader的核心接口设计
 
 ```python
+import backtrader as bt
+from typing import Dict, List, Optional
+
 class BacktestEngine:
-    """回测引擎核心类"""
+    """基于Backtrader的回测引擎核心类"""
+    
+    def __init__(self, factor_service: FactorService):
+        self.factor_service = factor_service
+        self.cerebro = None
     
     async def run_backtest(
         self, 
@@ -304,133 +359,202 @@ class BacktestEngine:
         Returns:
             回测结果
         """
-        pass
-    
-    async def run_factor_combination_test(
-        self,
-        stock_code: str,
-        factor_combinations: List[BacktestFactorConfig],
-        start_date: str,
-        end_date: str,
-        backtest_mode: BacktestMode = BacktestMode.HISTORICAL_SIMULATION
-    ) -> List[CombinationTestResult]:
-        """因子组合测试
+        # 1. 创建Cerebro引擎
+        cerebro = bt.Cerebro()
         
-        Args:
-            stock_code: 股票代码
-            factor_combinations: 因子组合列表
-            start_date: 开始日期
-            end_date: 结束日期
-            backtest_mode: 回测模式
+        # 2. 设置初始资金
+        cerebro.broker.setcash(float(config.initial_capital))
+        
+        # 3. 设置交易成本
+        cerebro.broker.setcommission(commission=config.transaction_cost)
+        
+        # 4. 添加数据源
+        data_feed = FactorDataFeed(
+            factor_service=self.factor_service,
+            stock_code=config.stock_code,
+            start_date=config.start_date,
+            end_date=config.end_date,
+            backtest_mode=config.backtest_mode
+        )
+        cerebro.adddata(data_feed)
+        
+        # 5. 添加策略
+        cerebro.addstrategy(
+            FactorStrategy,
+            factor_combination=config.factor_combination,
+            factor_service=self.factor_service,
+            backtest_mode=config.backtest_mode
+        )
+        
+        # 6. 添加分析器
+        cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
+        cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
+        cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')
+        cerebro.addanalyzer(PerformanceAnalyzer, _name='performance')
+        
+        # 7. 运行回测
+        results = cerebro.run()
+        strategy = results[0]
+        
+        # 8. 提取结果
+        return self._extract_backtest_result(strategy, config)
+    
+    def _extract_backtest_result(
+        self, 
+        strategy: 'FactorStrategy', 
+        config: BacktestConfig
+    ) -> BacktestResult:
+        """从Backtrader策略结果中提取回测结果"""
+        analyzers = strategy.analyzers
+        
+        return BacktestResult(
+            factor_combination=config.factor_combination,
+            start_date=config.start_date,
+            end_date=config.end_date,
+            stock_code=config.stock_code,
+            total_return=analyzers.returns.get_analysis()['rtot'],
+            annual_return=analyzers.returns.get_analysis()['rnorm'],
+            max_drawdown=analyzers.drawdown.get_analysis()['max']['drawdown'] / 100,
+            sharpe_ratio=analyzers.sharpe.get_analysis()['sharperatio'],
+            win_rate=analyzers.performance.get_analysis()['win_rate'],
+            trade_count=analyzers.performance.get_analysis()['trade_count']
+        )
+
+class FactorStrategy(bt.Strategy):
+    """基于因子组合的Backtrader策略"""
+    
+    params = (
+        ('factor_combination', None),
+        ('factor_service', None),
+        ('backtest_mode', BacktestMode.HISTORICAL_SIMULATION),
+        ('buy_threshold', 0.6),
+        ('sell_threshold', -0.6),
+    )
+    
+    def __init__(self):
+        self.factor_combination = self.params.factor_combination
+        self.factor_service = self.params.factor_service
+        self.backtest_mode = self.params.backtest_mode
+        
+        # 记录交易信息
+        self.trade_count = 0
+        self.win_count = 0
+        
+    def next(self):
+        """Backtrader策略核心逻辑，每个交易日调用"""
+        current_date = self.data.datetime.date(0).strftime('%Y-%m-%d')
+        stock_code = self.data._name
+        
+        # 1. 获取当前时点的因子数据
+        factor_data = self._get_current_factor_data(current_date, stock_code)
+        
+        if not factor_data:
+            return
+        
+        # 2. 计算因子综合评分
+        composite_score = self._calculate_factor_score(factor_data)
+        
+        # 3. 生成交易信号
+        if composite_score > self.params.buy_threshold and not self.position:
+            # 买入信号
+            size = self._calculate_position_size()
+            self.buy(size=size)
             
-        Returns:
-            组合测试结果列表
-        """
-        pass
+        elif composite_score < self.params.sell_threshold and self.position:
+            # 卖出信号
+            self.sell(size=self.position.size)
     
-    async def get_factor_data(
-        self,
-        timestamp: str,
-        symbol: str,
-        factor_combination: BacktestFactorConfig,
-        mode: BacktestMode
-    ) -> Dict:
-        """获取因子数据，根据因子组合配置直接获取所需因子
+    def _get_current_factor_data(self, date: str, stock_code: str) -> Dict:
+        """获取当前时点的因子数据"""
+        try:
+            # 根据回测模式获取因子数据
+            if self.backtest_mode == BacktestMode.HISTORICAL_SIMULATION:
+                # 历史模拟模式：获取历史真实因子数据
+                return self._get_historical_factor_data(date, stock_code)
+            else:
+                # 模型验证模式：使用最新模型计算因子
+                return self._get_model_factor_data(date, stock_code)
+        except Exception as e:
+            self.log(f'获取因子数据失败: {e}')
+            return {}
+    
+    def _calculate_factor_score(self, factor_data: Dict) -> float:
+        """计算因子综合评分"""
+        composite_score = 0.0
         
-        Args:
-            timestamp: 时间戳
-            symbol: 股票代码
-            factor_combination: 因子组合配置，包含所需因子名称和权重
-            mode: 回测模式
+        for factor in self.factor_combination.factors:
+            factor_name = factor.factor_name
+            factor_weight = factor.weight
             
-        Returns:
-            因子数据字典，包含factor_combination中指定的因子
-        """
-        # 直接从因子服务获取指定因子数据，无需过滤
-        factor_data = await self._fetch_all_factors(timestamp, symbol, mode, factor_combination)
+            if factor_name in factor_data:
+                factor_value = factor_data[factor_name]
+                composite_score += factor_value * factor_weight
         
-        return factor_data
+        return composite_score
     
-    async def _fetch_all_factors(
-        self,
-        timestamp: str,
-        symbol: str,
-        mode: BacktestMode,
-        factor_combination: BacktestFactorConfig
-    ) -> Dict:
-        """从因子服务获取指定股票的所有可用因子数据
+    def _calculate_position_size(self) -> int:
+        """计算仓位大小"""
+        # 简单的固定仓位策略
+        available_cash = self.broker.getcash()
+        current_price = self.data.close[0]
+        max_shares = int(available_cash / current_price)
+        return min(max_shares, 100)  # 最大100股
+    
+    def notify_trade(self, trade):
+        """交易完成通知"""
+        if trade.isclosed:
+            self.trade_count += 1
+            if trade.pnl > 0:
+                self.win_count += 1
+
+class FactorDataFeed(bt.feeds.DataBase):
+    """因子数据源，继承自Backtrader数据源"""
+    
+    def __init__(self, factor_service: FactorService, stock_code: str, 
+                 start_date: str, end_date: str, backtest_mode: BacktestMode):
+        super().__init__()
+        self.factor_service = factor_service
+        self.stock_code = stock_code
+        self.start_date = start_date
+        self.end_date = end_date
+        self.backtest_mode = backtest_mode
+        self._name = stock_code
         
-        根据因子组合配置按类型提取因子列表，调用calculate_all_factors接口获取因子数据
-        """
+    def _load(self):
+        """加载数据"""
+        # 从Tushare获取基础价格数据
+        # 这里需要实现具体的数据加载逻辑
         pass
+
+class PerformanceAnalyzer(bt.Analyzer):
+    """自定义绩效分析器"""
+    
+    def create_analysis(self):
+        self.rets = {}
+        self.vals = 0.0
+        self.trade_count = 0
+        self.win_count = 0
+    
+    def notify_cashvalue(self, cash, value):
+        self.vals = value
+    
+    def notify_trade(self, trade):
+        if trade.isclosed:
+            self.trade_count += 1
+            if trade.pnl > 0:
+                self.win_count += 1
+    
+    def get_analysis(self):
+        return {
+            'trade_count': self.trade_count,
+            'win_rate': self.win_count / max(self.trade_count, 1),
+            'final_value': self.vals
+        }
 
 class BacktestMode(Enum):
     """回测模式枚举"""
     HISTORICAL_SIMULATION = "historical_simulation"  # 历史模拟模式
     MODEL_VALIDATION = "model_validation"  # 模型验证模式
-
-class SignalGenerator:
-    """交易信号生成器"""
-    
-    def generate_signals(
-        self,
-        factor_data: Dict,
-        factor_combination: BacktestFactorConfig,
-        threshold_config: Dict = None
-    ) -> TradingSignal:
-        """生成交易信号，基于动态因子组合权重
-        
-        Args:
-            factor_data: 因子数据字典，包含各个因子的值
-            factor_combination: 因子组合配置，包含因子权重
-            threshold_config: 信号阈值配置
-            
-        Returns:
-            交易信号对象
-        """
-        # 1. 计算因子综合评分
-        composite_score = self._calculate_composite_score(factor_data, factor_combination)
-        
-        # 2. 根据评分生成交易信号
-        signal = self._generate_signal_from_score(composite_score, threshold_config)
-        
-        return signal
-    
-    def _calculate_composite_score(
-        self,
-        factor_data: Dict,
-        factor_combination: BacktestFactorConfig
-    ) -> float:
-        """计算因子综合评分
-        
-        根据因子组合中的权重配置，计算加权综合评分
-        """
-        composite_score = 0.0
-        
-        for factor_name in factor_combination.get_factor_names():
-            if factor_name in factor_data:
-                factor_value = factor_data[factor_name]
-                factor_weight = factor_combination.get_factor_weight(factor_name)
-                composite_score += factor_value * factor_weight
-        
-        return composite_score
-    
-    def _generate_signal_from_score(
-        self,
-        composite_score: float,
-        threshold_config: Dict = None
-    ) -> TradingSignal:
-        """根据综合评分生成交易信号"""
-        pass
-
-class TradingSignal(BaseModel):
-    """交易信号"""
-    signal_type: str  # BUY, SELL, HOLD
-    strength: float  # 信号强度 0-1
-    position_size: float  # 建议仓位大小
-    confidence: float  # 信号置信度
-    timestamp: str
-    composite_score: float  # 因子综合评分
 ```
 
 #### 2.1.4 数据模型
@@ -510,7 +634,7 @@ class BacktestResult(BaseModel):
     trade_count: int
 ```
 
-#### 2.1.5 业务流程时序图
+#### 2.1.5 基于Backtrader的业务流程时序图
 
 **详细回测流程（以比亚迪股票为例）**
 
@@ -518,58 +642,73 @@ class BacktestResult(BaseModel):
 sequenceDiagram
     participant API as API接口
     participant BE as BacktestEngine
-    participant DR as DataReplayer
+    participant Cerebro as bt.Cerebro
+    participant Strategy as FactorStrategy
+    participant DataFeed as FactorDataFeed
     participant FS as FactorService
-    participant DS as DataService
-    participant SG as SignalGenerator
-    participant RC as ReturnCalculator
+    participant Analyzer as bt.Analyzers
     participant DB as Database
     
-    Note over API,DB: 回测请求：比亚迪(002594)，2023-01-01至2023-12-31，使用优化引擎预先计算的因子组合配置
+    Note over API,DB: 回测请求：比亚迪(002594)，2023-01-01至2023-12-31，使用因子组合配置
     
     API->>BE: run_backtest(config: BacktestConfig)
-    BE->>BE: 验证配置参数
-    BE->>DR: 初始化数据回放器(start=2023-01-01, end=2023-12-31)
+    BE->>BE: 验证回测配置
     
-    Note over BE,DB: 开始逐日回测循环
+    Note over BE,Cerebro: 初始化Backtrader引擎
+    BE->>Cerebro: 创建bt.Cerebro实例
+    BE->>Cerebro: 设置初始资金和交易成本
     
+    BE->>DataFeed: 创建FactorDataFeed数据源
+    DataFeed->>FS: 获取历史价格数据
+    FS-->>DataFeed: 返回价格数据
+    BE->>Cerebro: adddata(data_feed)
+    
+    BE->>Cerebro: addstrategy(FactorStrategy, 因子组合配置)
+    BE->>Cerebro: addanalyzer(SharpeRatio, DrawDown, Returns等)
+    
+    Note over BE,DB: Backtrader引擎开始回测
+    BE->>Cerebro: cerebro.run()
+    
+    Note over Cerebro,FS: Backtrader内部循环处理每个交易日
     loop 每个交易日 (2023-01-01 到 2023-12-31)
-        Note over DR,FS: 当前日期：2023-01-03
+        Note over Strategy,FS: 当前日期：2023-01-03
         
-        DR->>DS: 获取比亚迪基础数据(价格、成交量等)
-        DS-->>DR: 返回基础市场数据
+        Cerebro->>Strategy: 调用next()方法
+        Strategy->>Strategy: 获取当前日期和股票代码
         
         alt 历史模拟模式
-            DR->>FS: calculate_all_factors(UnifiedFactorRequest: stock_code=002594, calculation_date=2023-01-03, technical_factors=["MA", "RSI"], fundamental_factors=["PE", "ROE"], market_factors=["total_market_cap"], sentiment_factors=["news_sentiment"])
-            FS-->>DR: 返回UnifiedFactorResponse(包含指定因子数据)
+            Strategy->>FS: calculate_all_factors(stock_code=002594, date=2023-01-03)
+            Note over FS: 获取历史真实因子数据
+            FS-->>Strategy: 返回历史因子数据
         else 模型验证模式
-            DR->>FS: calculate_all_factors(UnifiedFactorRequest: stock_code=002594, calculation_date=2023-01-03, technical_factors=["MA", "RSI"], fundamental_factors=["PE", "ROE"], market_factors=["total_market_cap"], sentiment_factors=["news_sentiment"])
-            FS-->>DR: 返回UnifiedFactorResponse(包含指定因子数据)
+            Strategy->>FS: calculate_all_factors(stock_code=002594, date=2023-01-03)
+            Note over FS: 使用最新模型计算因子
+            FS-->>Strategy: 返回模型计算的因子数据
         end
         
-        DR->>DR: 组装数据快照(价格+因子数据)
-        DR-->>BE: 返回比亚迪当日完整数据
+        Strategy->>Strategy: 计算因子综合评分
+        Note over Strategy: score = Σ(factor_value[i] * factor_weight[i])
         
-        BE->>SG: 生成交易信号(传入因子数据和因子组合权重配置)
-        SG->>SG: 遍历因子组合配置，计算加权综合评分
-        Note over SG: 动态计算：score = Σ(factor_value[i] * factor_weight[i])
-        SG->>SG: 根据评分阈值判断买卖信号
-        SG-->>BE: 返回信号(BUY/SELL/HOLD, 仓位大小)
+        alt 买入信号 (score > buy_threshold)
+            Strategy->>Strategy: self.buy(size=计算的仓位)
+            Strategy->>Cerebro: 提交买入订单
+        else 卖出信号 (score < sell_threshold)
+            Strategy->>Strategy: self.sell(size=当前持仓)
+            Strategy->>Cerebro: 提交卖出订单
+        else 持有信号
+            Strategy->>Strategy: 不执行交易
+        end
         
-        BE->>RC: 执行交易并计算收益
-        RC->>RC: 模拟交易执行(考虑滑点、手续费)
-        RC->>RC: 更新持仓状态
-        RC->>RC: 计算当日收益和累计收益
-        RC-->>BE: 返回收益数据和持仓状态
-        
-
+        Cerebro->>Cerebro: 处理订单，更新持仓和资金
+        Cerebro->>Analyzer: 更新绩效数据
     end
     
-    Note over BE,RC: 回测完成，汇总结果
+    Note over Cerebro,Analyzer: 回测完成，收集结果
+    Cerebro-->>BE: 返回策略实例和分析器结果
     
-    BE->>RC: 计算最终绩效指标
-    RC->>RC: 计算年化收益率、最大回撤、夏普比率等
-    RC-->>BE: 返回完整绩效报告
+    BE->>Strategy: 获取交易统计数据
+    BE->>Analyzer: 获取绩效分析结果
+    BE->>BE: 组装BacktestResult
     
     BE->>DB: 保存回测结果
     BE-->>API: 返回回测结果
@@ -577,15 +716,25 @@ sequenceDiagram
     Note over API: 结果：因子组合[PE,ROE,技术指标]，权重[0.3,0.4,0.3]，<br/>回测期间2023-01-01至2023-12-31，<br/>年化收益15.2%，最大回撤8.5%，夏普比率1.8
 ```
 
-**关键步骤说明：**
+**基于Backtrader的关键步骤说明：**
 
-1. **参数验证**：验证股票代码、日期范围、因子组合的有效性
-2. **数据准备**：按时间顺序准备历史数据，确保无未来函数
-3. **因子获取**：根据回测模式和因子组合配置直接获取所需因子，因子计算服务使用默认配置计算因子值
-4. **信号生成**：基于因子组合权重计算综合评分，生成交易信号
-5. **交易执行**：模拟真实交易环境，考虑交易成本和市场冲击
-6. **收益计算**：逐日更新持仓和收益，累计计算绩效指标
-7. **结果汇总**：生成完整的回测报告和绩效分析
+1. **Cerebro引擎初始化**：创建Backtrader核心引擎，设置初始资金、交易成本等参数
+2. **数据源配置**：通过FactorDataFeed加载历史价格数据，集成因子服务
+3. **策略配置**：将FactorStrategy添加到Cerebro，传入因子组合配置
+4. **分析器配置**：添加Backtrader内置分析器（夏普比率、回撤、收益率等）
+5. **回测执行**：Cerebro自动管理时间循环，每个交易日调用策略的next()方法
+6. **因子计算**：策略内部调用因子服务，根据回测模式获取因子数据
+7. **信号生成**：基于因子综合评分和阈值生成交易信号
+8. **订单处理**：通过Backtrader的buy/sell方法提交订单，引擎自动处理
+9. **绩效分析**：利用Backtrader分析器自动计算各项绩效指标
+10. **结果提取**：从策略和分析器中提取结果，组装成标准格式返回
+
+**Backtrader架构的优势：**
+- **成熟稳定**：经过大量实际项目验证的回测框架
+- **功能完整**：内置丰富的分析器、指标计算、订单管理等功能
+- **易于扩展**：支持自定义策略、数据源、分析器等组件
+- **性能优化**：高效的事件驱动架构，支持大规模历史数据回测
+- **社区支持**：活跃的开源社区，丰富的文档和示例
 
 ### 2.2 因子组合管理模块
 
@@ -1507,3 +1656,4 @@ CREATE TABLE backtest_results (
 [2024-01-28 17:05] [统一] 统一分页查询参数：将所有API接口中的page_size参数统一改为size，保持接口参数命名的一致性
 [2024-01-28 17:10] [移除] 移除因子组合配置验证接口：删除POST /api/v1/factor-config/validate接口，因为验证逻辑应该在创建配置时进行，避免接口冗余
 [2024-01-28 17:15] [重构] 因子组合管理重构：1）修改数据模型，将factors字段拆分为technical_factors、fundamental_factors、sentiment_factors三个字段，支持因子类型分类；2）更新数据库表结构，添加因子类型字段；3）修改API接口，确保一个股票只有一个配置，将list-by-stock改为get-by-stock接口；4）查询接口返回完整的因子组合详情，包括各类型因子和权重信息
+[2025-01-08 10:00] [重大重构] [基于Backtrader框架重新设计回测引擎架构] 解决技术选型与实际设计不一致的问题：1）将自研的BacktestEngine、DataReplayer、SignalGenerator、ReturnCalculator重构为基于Backtrader的FactorStrategy、FactorDataFeed、PerformanceAnalyzer；2）更新整体架构图，体现Cerebro核心引擎和Backtrader组件继承关系；3）重写核心接口设计，基于bt.Strategy、bt.DataBase、bt.Analyzer框架；4）更新业务流程时序图，体现Backtrader的事件驱动机制；5）更新核心模块概述，强调Backtrader框架的优势和集成方式。原因：避免重复造轮子，利用成熟框架的稳定性和功能完整性

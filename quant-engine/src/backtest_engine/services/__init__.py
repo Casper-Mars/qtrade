@@ -7,6 +7,7 @@
 - 收益计算器：投资组合收益计算
 """
 
+from .backtest_engine import BacktestEngine
 from .data_replayer import DataReplayer, DataSnapshot
 from .factor_combination_manager import (
     ConfigValidator,
@@ -21,6 +22,7 @@ from .return_calculator import (
 from .signal_generator import SignalGenerator
 
 __all__ = [
+    "BacktestEngine",
     "DataReplayer",
     "DataSnapshot",
     "FactorCombinationManager",

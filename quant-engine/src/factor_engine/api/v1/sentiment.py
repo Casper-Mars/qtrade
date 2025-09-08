@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query
 from loguru import logger
 
-from ....dao import SentimentFactorDAO
 from ...calculators.sentiment import SentimentFactorCalculator
+from ...dao import NewsSentimentFactorDAO
 from ...models.schemas import (
     ApiResponse,
     BatchSentimentFactorRequest,
@@ -64,7 +64,7 @@ async def calculate_sentiment_factor(
             )
 
         # 保存到数据库
-        await SentimentFactorDAO.save_sentiment_factor(
+        await NewsSentimentFactorDAO.save_sentiment_factor(
             stock_code=request.stock_code,
             sentiment_factor=result["sentiment_factor"],
             positive_score=result["positive_score"],
@@ -159,7 +159,7 @@ async def batch_calculate_sentiment_factors(
 
                 # 保存到数据库
                 start_date = calculation_date - timedelta(days=7)
-                await SentimentFactorDAO.save_sentiment_factor(
+                await NewsSentimentFactorDAO.save_sentiment_factor(
                     stock_code=stock_code,
                     sentiment_factor=result["sentiment_factor"],
                     positive_score=result["positive_score"],
@@ -254,7 +254,7 @@ async def get_sentiment_factor(
                 detail="日期格式不正确，应为YYYY-MM-DD"
             ) from e
 
-        result = await SentimentFactorDAO.get_sentiment_factor(
+        result = await NewsSentimentFactorDAO.get_sentiment_factor(
             stock_code=stock_code,
             calculation_date=calculation_date,
         )
@@ -310,7 +310,7 @@ async def get_sentiment_factors_by_date(
                 detail="日期格式不正确，应为YYYY-MM-DD"
             ) from e
 
-        results = await SentimentFactorDAO.get_sentiment_factors_by_date(
+        results = await NewsSentimentFactorDAO.get_sentiment_factors_by_date(
             calculation_date=calculation_date,
             limit=limit,
         )
@@ -354,13 +354,13 @@ async def get_sentiment_trend(
     """
     try:
         # 获取趋势数据
-        trend_data = await SentimentFactorDAO.get_sentiment_trend(
+        trend_data = await NewsSentimentFactorDAO.get_sentiment_trend(
             stock_code=request.stock_code,
             days=request.days,
         )
 
         # 获取统计数据
-        statistics = await SentimentFactorDAO.get_sentiment_statistics(
+        statistics = await NewsSentimentFactorDAO.get_sentiment_statistics(
             stock_code=request.stock_code,
             days=request.days,
         )
@@ -408,7 +408,7 @@ async def sentiment_health_check() -> ApiResponse:
         # 检查数据库连接
         try:
             # 尝试查询一条记录来测试数据库连接
-            await SentimentFactorDAO.get_sentiment_factors_by_date(
+            await NewsSentimentFactorDAO.get_sentiment_factors_by_date(
                 calculation_date="2024-01-01",
                 limit=1
             )

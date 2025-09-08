@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import TypeVar
+from typing import Any, TypeVar
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,20 +40,21 @@ class BaseDAO(ABC):
         pass
 
     @abstractmethod
-    async def list(self, skip: int = 0, limit: int = 100, **filters) -> list[T]:
+    async def list(self, skip: int = 0, limit: int = 100, **filters: Any) -> list[T]:
         """列表查询"""
         pass
 
     @abstractmethod
-    async def count(self, **filters) -> int:
+    async def count(self, **filters: Any) -> int:
         """计数查询"""
         pass
 
 
 class CRUDMixin:
     """CRUD操作混入类"""
+    session: AsyncSession
 
-    async def create_obj(self, model_class: type[T], **kwargs) -> T:
+    async def create_obj(self, model_class: type[T], **kwargs: Any) -> T:
         """创建对象的通用方法"""
         obj = model_class(**kwargs)
         self.session.add(obj)
@@ -66,7 +67,7 @@ class CRUDMixin:
         result = await self.session.get(model_class, obj_id)
         return result
 
-    async def update_obj(self, obj: T, **kwargs) -> T:
+    async def update_obj(self, obj: T, **kwargs: Any) -> T:
         """更新对象的通用方法"""
         for key, value in kwargs.items():
             if hasattr(obj, key):

@@ -104,40 +104,7 @@ class TushareClient:
 
         raise DataSourceError(f"Tushare API调用失败，已重试{settings.tushare_retry_count}次: {last_error}")
 
-    async def get_stock_basic(self,
-                             exchange: str | None = None,
-                             list_status: str = 'L') -> Any:
-        """获取股票基本信息
 
-        Args:
-            exchange: 交易所代码 SSE上交所 SZSE深交所
-            list_status: 上市状态 L上市 D退市 P暂停上市
-
-        Returns:
-            包含股票基本信息的DataFrame
-        """
-        try:
-            if self._api is None:
-                raise DataSourceError("API未初始化")
-            api = self._api  # 类型断言
-            result = await self._execute_with_retry(
-                lambda: api.stock_basic(
-                    exchange=exchange,
-                    list_status=list_status,
-                    fields='ts_code,symbol,name,area,industry,market,list_date'
-                )
-            )
-
-            if result is None or len(result) == 0:
-                logger.warning("获取股票基本信息为空")
-                return pd.DataFrame()
-
-            logger.info(f"成功获取{len(result)}条股票基本信息")
-            return result
-
-        except Exception as e:
-            logger.error(f"获取股票基本信息失败: {e}")
-            raise DataSourceError(f"获取股票基本信息失败: {e}") from e
 
     async def get_daily_data(self,
                            ts_code: str,
@@ -347,8 +314,8 @@ class TushareClient:
             logger.error(f"获取股票{ts_code}财务指标数据失败: {e}")
             raise DataSourceError(f"获取股票{ts_code}财务指标数据失败: {e}") from e
 
-    async def get_daily_basic(self, ts_code: str = None, trade_date: str = None,
-                             start_date: str = None, end_date: str = None) -> list[dict[str, Any]]:
+    async def get_daily_basic(self, ts_code: str | None = None, trade_date: str | None = None,
+                             start_date: str | None = None, end_date: str | None = None) -> list[dict[str, Any]]:
         """
         获取股票每日基本面数据（市值、换手率等）
 
@@ -379,7 +346,7 @@ class TushareClient:
             if end_date:
                 params['end_date'] = end_date
 
-            result = await self._execute_with_retry(
+            result: Any = await self._execute_with_retry(
                 lambda: api.daily_basic(**params)
             )
 
@@ -388,7 +355,7 @@ class TushareClient:
                 return []
 
             # 转换为字典列表格式
-            data_list = result.to_dict('records')
+            data_list: list[dict[str, Any]] = result.to_dict('records')
             logger.info(f"成功获取{len(data_list)}条每日基本面数据")
             return data_list
 
@@ -396,9 +363,9 @@ class TushareClient:
             logger.error(f"获取每日基本面数据失败: {e}")
             raise DataSourceError(f"获取每日基本面数据失败: {e}") from e
 
-    async def get_stock_basic(self, ts_code: str = None, name: str = None,
-                             exchange: str = None, market: str = None,
-                             is_hs: str = None, list_status: str = 'L') -> list[dict[str, Any]]:
+    async def get_stock_basic(self, ts_code: str | None = None, name: str | None = None,
+                             exchange: str | None = None, market: str | None = None,
+                             is_hs: str | None = None, list_status: str = 'L') -> list[dict[str, Any]]:
         """
         获取股票基本信息
 
@@ -429,14 +396,19 @@ class TushareClient:
             if is_hs:
                 params['is_hs'] = is_hs
 
-            result = await self._call_api('stock_basic', **params)
+            if self._api is None:
+                raise DataSourceError("API未初始化")
+            api = self._api
+            result: Any = await self._execute_with_retry(
+                lambda: api.stock_basic(**params)
+            )
 
             if result and 'data' in result:
                 # 转换为字典列表格式
                 columns = result['data']['fields']
                 rows = result['data']['items']
 
-                data_list = []
+                data_list: list[dict[str, Any]] = []
                 for row in rows:
                     data_dict = dict(zip(columns, row, strict=False))
                     data_list.append(data_dict)

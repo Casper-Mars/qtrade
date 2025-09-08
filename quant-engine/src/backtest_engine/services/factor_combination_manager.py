@@ -23,7 +23,7 @@ class ConfigValidator:
     负责验证因子组合配置的有效性，包括权重验证、因子配置验证等。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化配置验证器"""
         self.weight_tolerance = Decimal('0.001')  # 权重误差容忍度
 
@@ -136,7 +136,7 @@ class ConfigValidator:
 
         # 验证权重总和
         total_weight = sum(factor.weight for factor in combination.factors)
-        if abs(total_weight - 1) > float(self.weight_tolerance):
+        if abs(float(total_weight) - 1) > float(self.weight_tolerance):
             result.add_error(f"因子权重总和必须等于1.0，当前总和：{total_weight}")
 
         # 检查非活跃因子

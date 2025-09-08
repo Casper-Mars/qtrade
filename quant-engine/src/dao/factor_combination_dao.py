@@ -13,7 +13,7 @@ class FactorCombinationDAO:
     负责因子组合配置的数据库CRUD操作。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化因子组合配置DAO"""
         # TODO: 在任务M003中实现数据库连接和表结构
         pass

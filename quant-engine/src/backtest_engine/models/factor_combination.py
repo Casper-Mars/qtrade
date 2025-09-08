@@ -7,7 +7,7 @@
 - 因子组合模型：FactorCombination
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 from uuid import UUID, uuid4
@@ -55,14 +55,14 @@ class FactorConfig(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
 
     @validator('weight')
-    def validate_weight(cls, v):
+    def validate_weight(cls, v: Decimal) -> Decimal:
         """验证权重值"""
         if v < 0 or v > 1:
             raise ValueError('权重必须在0-1之间')
         return v
 
     @validator('name')
-    def validate_name(cls, v):
+    def validate_name(cls, v: str) -> str:
         """验证因子名称"""
         if not v or not v.strip():
             raise ValueError('因子名称不能为空')
@@ -81,17 +81,17 @@ class FactorConfig(BaseModel):
 class FactorCombination(BaseModel):
     """因子组合模型"""
     id: UUID = Field(default_factory=uuid4, description="组合唯一标识")
-    name: str = Field(..., min_length=1, max_length=100, description="组合名称")
-    description: str | None = Field(None, max_length=1000, description="组合描述")
-    factors: list[FactorConfig] = Field(..., min_items=1, description="因子配置列表")
+    name: str = Field(min_length=1, max_length=100, description="组合名称")
+    description: str | None = Field(default=None, max_length=1000, description="组合描述")
+    factors: list[FactorConfig] = Field(default_factory=list, min_length=1, description="因子配置列表")
     total_weight: Decimal = Field(default=Decimal('0'), description="总权重")
     is_active: bool = Field(default=True, description="是否启用")
-    created_by: str | None = Field(None, description="创建者")
+    created_by: str | None = Field(default=None, description="创建者")
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
 
-    @root_validator
-    def validate_combination(cls, values):
+    @root_validator(pre=True)
+    def validate_combination(cls, values: dict) -> dict:
         """验证因子组合"""
         factors = values.get('factors', [])
         if not factors:
@@ -113,13 +113,13 @@ class FactorCombination(BaseModel):
         return values
 
     @validator('name')
-    def validate_name(cls, v):
+    def validate_name(cls, v: str) -> str:
         """验证组合名称"""
         if not v or not v.strip():
             raise ValueError('组合名称不能为空')
         return v.strip()
 
-    def validate(self) -> ValidationResult:
+    def validate_combination_data(self) -> ValidationResult:
         """验证因子组合的有效性"""
         result = ValidationResult(is_valid=True)
 
@@ -130,7 +130,7 @@ class FactorCombination(BaseModel):
 
         # 检查权重总和
         total_weight = sum(factor.weight for factor in self.factors)
-        if abs(total_weight - 1) > 0.001:
+        if abs(float(total_weight) - 1) > 0.001:
             result.add_error(f"因子权重总和必须等于1.0，当前为{total_weight}")
 
         # 检查因子名称唯一性
@@ -166,7 +166,7 @@ class FactorCombination(BaseModel):
                 factor.updated_at = datetime.now()
                 self.updated_at = datetime.now()
                 # 重新计算总权重
-                self.total_weight = sum(f.weight for f in self.factors)
+                self.total_weight = Decimal(str(sum(f.weight for f in self.factors)))
                 return True
         return False
 
@@ -186,14 +186,14 @@ class StockCode(BaseModel):
     market: str = Field(..., description="市场标识，如SH、SZ")
 
     @validator('code')
-    def validate_code(cls, v):
+    def validate_code(cls, v: str) -> str:
         """验证股票代码格式"""
         if not v or len(v) != 6 or not v.isdigit():
             raise ValueError('股票代码必须是6位数字')
         return v
 
     @validator('market')
-    def validate_market(cls, v):
+    def validate_market(cls, v: str) -> str:
         """验证市场标识"""
         if v.upper() not in ['SH', 'SZ', 'BJ']:
             raise ValueError('市场标识必须是SH、SZ或BJ')
@@ -222,7 +222,7 @@ class BacktestConfig(BaseModel):
     id: UUID = Field(default_factory=uuid4, description="回测配置唯一标识")
     name: str = Field(..., min_length=1, max_length=100, description="回测配置名称")
     factor_combination: FactorCombination = Field(..., description="因子组合配置")
-    stock_pool: list[StockCode] = Field(..., min_items=1, description="股票池")
+    stock_pool: list[StockCode] = Field(min_length=1, description="股票池")
     start_date: datetime = Field(..., description="回测开始日期")
     end_date: datetime = Field(..., description="回测结束日期")
     initial_capital: Decimal = Field(..., gt=0, description="初始资金")
@@ -234,7 +234,7 @@ class BacktestConfig(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
 
     @validator('end_date')
-    def validate_date_range(cls, v, values):
+    def validate_date_range(cls, v: date, values: dict) -> date:
         """验证日期范围"""
         start_date = values.get('start_date')
         if start_date and v <= start_date:
@@ -242,7 +242,7 @@ class BacktestConfig(BaseModel):
         return v
 
     @validator('rebalance_frequency')
-    def validate_rebalance_frequency(cls, v):
+    def validate_rebalance_frequency(cls, v: str) -> str:
         """验证调仓频率"""
         valid_frequencies = ['daily', 'weekly', 'monthly', 'quarterly']
         if v not in valid_frequencies:

@@ -607,7 +607,6 @@ classDiagram
     }
     
     class ConfigValidator {
-        +validate_factors(factors: List[str]) ValidationResult
         +validate_weights(weights: Dict[str, float]) ValidationResult
         +validate_configuration(config: FactorConfig) ValidationResult
     }
@@ -619,15 +618,8 @@ classDiagram
         +delete_config(config_id: str) bool
     }
     
-    class WeightManager {
-        +normalize_weights(weights: Dict[str, float]) Dict[str, float]
-        +validate_weight_sum(weights: Dict[str, float]) bool
-        +apply_constraints(weights: Dict[str, float]) Dict[str, float]
-    }
-    
     FactorCombinationManager --> ConfigValidator
     FactorCombinationManager --> ConfigStorage
-    FactorCombinationManager --> WeightManager
 ```
 
 #### 2.2.3 核心接口设计
@@ -639,7 +631,6 @@ class FactorCombinationManager:
     def __init__(self, validator: ConfigValidator, storage: ConfigStorage):
         self.validator = validator
         self.storage = storage
-        self.weight_manager = WeightManager()
     
     async def create_configuration(
         self, 
@@ -731,8 +722,6 @@ sequenceDiagram
 
 #### 2.2.6 技术限制和约束
 - 因子权重总和必须等于1.0
-- 单个因子权重不能超过配置的最大限制
-- 因子必须在可用因子列表中
 
 #### 2.2.7 HTTP API接口设计
 

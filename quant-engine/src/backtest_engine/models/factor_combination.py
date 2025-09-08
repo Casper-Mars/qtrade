@@ -78,6 +78,85 @@ class FactorConfig(BaseModel):
         }
 
 
+# API请求和响应模型
+
+class FactorCombinationCreateRequest(BaseModel):
+    """创建因子组合配置请求模型"""
+    stock_code: str = Field(..., description="股票代码")
+    description: str | None = Field(None, description="配置描述")
+    technical_factors: list[str] = Field(default_factory=list, description="技术因子列表")
+    fundamental_factors: list[str] = Field(default_factory=list, description="基本面因子列表")
+    sentiment_factors: list[str] = Field(default_factory=list, description="情绪因子列表")
+    factor_weights: dict[str, float] = Field(..., description="因子权重配置")
+
+
+class FactorConfigGetRequest(BaseModel):
+    """获取因子组合配置请求模型"""
+    config_id: str = Field(..., description="配置ID")
+
+
+class FactorCombinationUpdateRequest(BaseModel):
+    """更新因子组合配置请求模型"""
+    config_id: str = Field(..., description="配置ID")
+    description: str | None = Field(None, description="配置描述")
+    technical_factors: list[str] | None = Field(None, description="技术因子列表")
+    fundamental_factors: list[str] | None = Field(None, description="基本面因子列表")
+    sentiment_factors: list[str] | None = Field(None, description="情绪因子列表")
+    factor_weights: dict[str, float] | None = Field(None, description="因子权重配置")
+
+
+class FactorCombinationDeleteRequest(BaseModel):
+    """删除因子组合配置请求模型"""
+    config_id: str = Field(..., description="配置ID")
+
+
+class FactorCombinationListRequest(BaseModel):
+    """获取配置列表请求模型"""
+    page: int = Field(default=1, ge=1, description="页码")
+    size: int = Field(default=10, ge=1, le=100, description="每页大小")
+
+
+class FactorCombinationGetByStockRequest(BaseModel):
+    """按股票代码查询配置请求模型"""
+    stock_code: str = Field(..., description="股票代码")
+
+
+class FactorCombinationData(BaseModel):
+    """因子组合配置数据模型"""
+    config_id: str = Field(..., description="配置ID")
+    stock_code: str = Field(..., description="股票代码")
+    description: str | None = Field(None, description="配置描述")
+    technical_factors: list[str] = Field(default_factory=list, description="技术因子列表")
+    fundamental_factors: list[str] = Field(default_factory=list, description="基本面因子列表")
+    sentiment_factors: list[str] = Field(default_factory=list, description="情绪因子列表")
+    factor_weights: dict[str, float] = Field(..., description="因子权重配置")
+    factor_count: int = Field(..., description="因子总数")
+    created_at: str | None = Field(None, description="创建时间")
+    updated_at: str | None = Field(None, description="更新时间")
+
+
+class FactorCombinationResponse(BaseModel):
+    """因子组合配置响应模型"""
+    code: int = Field(..., description="响应码")
+    message: str = Field(..., description="响应消息")
+    data: FactorCombinationData | None = Field(None, description="响应数据")
+
+
+class FactorCombinationListData(BaseModel):
+    """因子组合配置列表数据模型"""
+    total: int = Field(..., description="总数量")
+    page: int = Field(..., description="当前页码")
+    size: int = Field(..., description="每页大小")
+    configs: list[FactorCombinationData] = Field(default_factory=list, description="配置列表")
+
+
+class FactorCombinationListResponse(BaseModel):
+    """因子组合配置列表响应模型"""
+    code: int = Field(..., description="响应码")
+    message: str = Field(..., description="响应消息")
+    data: FactorCombinationListData | None = Field(None, description="响应数据")
+
+
 class FactorCombination(BaseModel):
     """因子组合模型"""
     id: UUID = Field(default_factory=uuid4, description="组合唯一标识")

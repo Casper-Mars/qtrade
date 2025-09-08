@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 from loguru import logger
 
+from ...backtest_engine.api.v1 import factor_config
 from ...factor_engine.api.v1 import fundamental, market, sentiment, technical
 from .endpoints import health, system
 
@@ -26,6 +27,10 @@ api_v1_router.include_router(
 
 api_v1_router.include_router(
     market.router, tags=["市场因子"]
+)
+
+api_v1_router.include_router(
+    factor_config.router, tags=["因子组合配置"]
 )
 
 logger.info("API v1路由注册完成")

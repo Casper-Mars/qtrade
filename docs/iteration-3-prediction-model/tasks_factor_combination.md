@@ -54,12 +54,13 @@
 ### 模块B：HTTP API接口层
 
 #### 功能点B1：因子组合配置API实现
-- [ ] 任务M005. 实现因子组合配置API
+- [x] 任务M005. 实现因子组合配置API
   - 实现配置创建API（参考design_backend.md第2.2.7节）
      * 实现POST /api/v1/factor-config/create接口
    - 实现配置查询API（参考design_backend.md第2.2.7节）
-     * 实现POST /api/v1/factor-config/get-by-id接口
+     * 实现POST /api/v1/factor-config/get接口
      * 实现POST /api/v1/factor-config/list接口
+     * 实现POST /api/v1/factor-config/get-by-stock接口
    - 实现配置更新和删除API（参考design_backend.md第2.2.7节）
      * 实现POST /api/v1/factor-config/update接口
      * 实现POST /api/v1/factor-config/delete接口

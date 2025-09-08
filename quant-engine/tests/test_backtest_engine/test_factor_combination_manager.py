@@ -235,11 +235,23 @@ class TestFactorCombinationManager:
     @pytest.mark.asyncio
     async def test_create_combination_success(self, manager, mock_validator, mock_dao, valid_combination):
         """测试创建因子组合成功"""
-        config_id = await manager.create_combination(valid_combination)
+        # 设置mock返回值
+        mock_validator.validate_weights.return_value = ValidationResult(is_valid=True)
+        mock_dao.save_config.return_value = "test_config_id"
+        
+        result = await manager.create_combination(
+            stock_code="000001.SZ",
+            description="测试组合",
+            technical_factors=["RSI", "MACD"],
+            fundamental_factors=["PE", "ROE"],
+            sentiment_factors=["news_sentiment"],
+            factor_weights={"RSI": 0.3, "MACD": 0.2, "PE": 0.3, "ROE": 0.2}
+        )
 
-        assert config_id == "test_config_id"
-        mock_validator.validate_combination.assert_called_once_with(valid_combination)
-        mock_dao.save_config.assert_called_once_with(valid_combination)
+        assert result.stock_code == "000001.SZ"
+        assert result.description == "测试组合"
+        mock_validator.validate_weights.assert_called_once()
+        mock_dao.save_config.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_create_combination_validation_failed(self, manager, mock_validator, valid_combination):
@@ -247,10 +259,15 @@ class TestFactorCombinationManager:
         # 设置验证失败
         validation_result = ValidationResult(is_valid=False)
         validation_result.add_error("测试错误")
-        mock_validator.validate_combination.return_value = validation_result
+        mock_validator.validate_weights.return_value = validation_result
 
-        with pytest.raises(ValueError, match="配置验证失败"):
-            await manager.create_combination(valid_combination)
+        with pytest.raises(ValueError, match="权重配置验证失败"):
+            await manager.create_combination(
+                stock_code="000001.SZ",
+                description="测试组合",
+                technical_factors=["RSI"],
+                factor_weights={"RSI": 1.5}  # 无效权重
+            )
 
     @pytest.mark.asyncio
     async def test_get_combination_success(self, manager, mock_dao, valid_combination):
@@ -259,7 +276,12 @@ class TestFactorCombinationManager:
 
         result = await manager.get_combination("test_config_id")
 
-        assert result == valid_combination
+        # 验证返回的是FactorCombinationData对象
+        assert result is not None
+        assert result.config_id == "test_config_id"
+        assert result.stock_code == valid_combination.name
+        assert result.description == valid_combination.description
+        assert result.factor_count == len(valid_combination.factors)
         mock_dao.get_config.assert_called_once_with("test_config_id")
 
     @pytest.mark.asyncio
@@ -275,22 +297,45 @@ class TestFactorCombinationManager:
     @pytest.mark.asyncio
     async def test_update_combination_success(self, manager, mock_validator, mock_dao, valid_combination):
         """测试更新因子组合成功"""
-        result = await manager.update_combination("test_config_id", valid_combination)
+        # 设置mock返回值
+        mock_dao.get_config.return_value = valid_combination
+        mock_dao.update_config.return_value = True
+        validation_result = ValidationResult(is_valid=True)
+        mock_validator.validate_weights.return_value = validation_result
+        
+        update_data = {
+            "technical_factors": ["RSI"],
+            "factor_weights": {"RSI": 1.0},
+            "description": "更新的测试组合"
+        }
+        
+        result = await manager.update_combination("test_config_id", update_data)
 
-        assert result is True
-        mock_validator.validate_combination.assert_called_once_with(valid_combination)
-        mock_dao.update_config.assert_called_once_with("test_config_id", valid_combination)
+        assert result is not None
+        assert result.config_id == "test_config_id"
+        assert result.description == "更新的测试组合"
+        mock_dao.get_config.assert_called_once_with("test_config_id")
+        mock_validator.validate_weights.assert_called_once_with({"RSI": 1.0})
 
     @pytest.mark.asyncio
-    async def test_update_combination_validation_failed(self, manager, mock_validator, valid_combination):
+    async def test_update_combination_validation_failed(self, manager, mock_validator, mock_dao, valid_combination):
         """测试更新因子组合验证失败"""
+        # 设置mock返回值
+        mock_dao.get_config.return_value = valid_combination
+        
         # 设置验证失败
         validation_result = ValidationResult(is_valid=False)
         validation_result.add_error("测试错误")
-        mock_validator.validate_combination.return_value = validation_result
+        mock_validator.validate_weights.return_value = validation_result
+        
+        update_data = {
+            "technical_factors": ["RSI"],
+            "factor_weights": {"RSI": 1.5},  # 无效权重
+            "description": "测试组合"
+        }
 
-        with pytest.raises(ValueError, match="配置验证失败"):
-            await manager.update_combination("test_config_id", valid_combination)
+        with pytest.raises(ValueError, match="权重配置验证失败"):
+            await manager.update_combination("test_config_id", update_data)
 
     @pytest.mark.asyncio
     async def test_delete_combination_success(self, manager, mock_dao):

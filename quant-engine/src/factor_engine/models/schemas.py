@@ -347,9 +347,16 @@ class SentimentFactorRequest(BaseFactorModel):
 
     @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
-            raise ValueError("股票代码格式不正确")
-        return v
+        # 支持格式：纯数字(000001)、SH/SZ开头(SH600000)、带后缀(000001.SZ)
+        if v.isdigit():
+            return v
+        if v.startswith(("SH", "SZ")) and len(v) == 8:
+            return v
+        if "." in v:
+            code, suffix = v.split(".")
+            if code.isdigit() and suffix in ["SH", "SZ"]:
+                return v
+        raise ValueError("股票代码格式不正确")
 
     @validator("date")
     def validate_date(cls, v: str) -> str:
@@ -520,9 +527,16 @@ class SentimentTrendRequest(BaseFactorModel):
 
     @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
-            raise ValueError("股票代码格式不正确")
-        return v
+        # 支持格式：纯数字(000001)、SH/SZ开头(SH600000)、带后缀(000001.SZ)
+        if v.isdigit():
+            return v
+        if v.startswith(("SH", "SZ")) and len(v) == 8:
+            return v
+        if "." in v:
+            code, suffix = v.split(".")
+            if code.isdigit() and suffix in ["SH", "SZ"]:
+                return v
+        raise ValueError("股票代码格式不正确")
 
     @validator("days")
     def validate_days(cls, v: int) -> int:
@@ -582,6 +596,9 @@ class UnifiedFactorRequest(BaseFactorModel):
     market_factors: list[str] | None = Field(
         default=["total_market_cap", "turnover_rate"], description="市场因子列表"
     )
+    sentiment_factors: list[str] | None = Field(
+        default=["news_sentiment", "social_sentiment"], description="情绪因子列表"
+    )
     period: str | None = Field(
         default=None, description="基本面因子报告期，格式：2023Q4或2023"
     )
@@ -589,7 +606,10 @@ class UnifiedFactorRequest(BaseFactorModel):
 
     @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+        # 支持格式：000001.SZ, 600000.SH, SH600000, SZ000001, 000001, 600000
+        if not (v.isdigit() or
+                v.endswith(".SZ") or v.endswith(".SH") or
+                v.startswith("SH") or v.startswith("SZ")):
             raise ValueError("股票代码格式不正确")
         return v
 
@@ -704,7 +724,10 @@ class UnifiedFactorHistoryRequest(BaseFactorModel):
 
     @validator("stock_code")
     def validate_stock_code(cls, v: str) -> str:
-        if not v.isdigit() and not (v.startswith("SH") or v.startswith("SZ")):
+        # 支持格式：000001.SZ, 600000.SH, SH600000, SZ000001, 000001, 600000
+        if not (v.isdigit() or
+                v.endswith(".SZ") or v.endswith(".SH") or
+                v.startswith("SH") or v.startswith("SZ")):
             raise ValueError("股票代码格式不正确")
         return v
 

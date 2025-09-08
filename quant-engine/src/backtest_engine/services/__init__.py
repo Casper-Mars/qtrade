@@ -1,18 +1,19 @@
 """回测引擎服务层模块
 
-本模块提供回测引擎的业务服务功能，包括：
-- 回测任务服务
-- 因子组合管理服务
-- 性能分析服务
-- 策略执行服务
+包含回测引擎的核心服务组件：
+- 数据回放器：历史数据回放和验证
+- 因子组合管理器：因子配置管理
 """
 
+from .data_replayer import DataReplayer, DataSnapshot
 from .factor_combination_manager import (
     ConfigValidator,
     FactorCombinationManager,
 )
 
 __all__ = [
+    "DataReplayer",
+    "DataSnapshot",
     "FactorCombinationManager",
     "ConfigValidator",
 ]

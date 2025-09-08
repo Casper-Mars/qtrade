@@ -666,13 +666,6 @@ class FactorCombinationManager:
 class ConfigValidator:
     """配置验证器"""
     
-    async def validate_factors(
-        self, 
-        factors: List[str]
-    ) -> ValidationResult:
-        """验证因子有效性"""
-        pass
-    
     async def validate_weights(
         self, 
         weights: Dict[str, float]

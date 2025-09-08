@@ -30,7 +30,7 @@
   - _前置条件：任务M001完成_
 
 #### 功能点A3：配置存储管理器实现
-- [ ] 任务M003. 实现配置存储管理器
+- [x] 任务M003. 实现配置存储管理器
   - 实现ConfigStorage类（参考design_backend.md第2.2.2节）
     * 实现save_config、get_config、update_config、delete_config方法
   - 创建数据库表结构（参考design_backend.md第3.2节）

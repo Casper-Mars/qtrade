@@ -688,11 +688,19 @@ class FactorConfig(BaseModel):
     """因子组合配置"""
     config_id: str  # 配置ID
     stock_code: str  # 股票代码（如：000001.SZ）
-    factors: List[str]  # 选中的因子列表
-    factor_weights: Dict[str, float]  # 因子权重
+    technical_factors: List[str]  # 技术面因子列表
+    fundamental_factors: List[str]  # 基本面因子列表
+    sentiment_factors: List[str]  # 消息面因子列表
+    factor_weights: Dict[str, float]  # 因子权重（key为因子名称）
     description: Optional[str]  # 配置描述
     created_at: datetime
     updated_at: datetime
+    
+class FactorType(str, Enum):
+    """因子类型枚举"""
+    TECHNICAL = "technical"  # 技术面因子
+    FUNDAMENTAL = "fundamental"  # 基本面因子
+    SENTIMENT = "sentiment"  # 消息面因子
     
 class ValidationResult(BaseModel):
     """验证结果"""
@@ -731,7 +739,6 @@ sequenceDiagram
 #### 2.2.6 技术限制和约束
 - 因子权重总和必须等于1.0
 - 单个因子权重不能超过配置的最大限制
-- 配置名称在用户范围内必须唯一
 - 因子必须在可用因子列表中
 
 #### 2.2.7 HTTP API接口设计
@@ -745,12 +752,17 @@ Content-Type: application/json
 
 {
   "stock_code": "000001.SZ",
-  "description": "基于技术指标的因子组合配置",
-  "factors": ["rsi", "macd", "bollinger_bands"],
+  "description": "基于多类型因子的组合配置",
+  "technical_factors": ["rsi", "macd", "bollinger_bands"],
+  "fundamental_factors": ["pe_ratio", "pb_ratio"],
+  "sentiment_factors": ["news_sentiment"],
   "factor_weights": {
-    "rsi": 0.3,
-    "macd": 0.4,
-    "bollinger_bands": 0.3
+    "rsi": 0.2,
+    "macd": 0.2,
+    "bollinger_bands": 0.2,
+    "pe_ratio": 0.2,
+    "pb_ratio": 0.1,
+    "news_sentiment": 0.1
   }
 }
 ```
@@ -858,7 +870,7 @@ Content-Type: application/json
 
 {
   "page": 1,
-  "page_size": 10
+  "size": 10
 }
 ```
 
@@ -870,13 +882,24 @@ Content-Type: application/json
   "data": {
     "total": 5,
     "page": 1,
-    "page_size": 10,
+    "size": 10,
     "configs": [
       {
         "config_id": "config_20240107_001",
         "stock_code": "000001.SZ",
-        "description": "基于技术指标的因子组合配置",
-        "factor_count": 3,
+        "description": "基于多类型因子的组合配置",
+        "technical_factors": ["rsi", "macd", "bollinger_bands"],
+        "fundamental_factors": ["pe_ratio", "pb_ratio"],
+        "sentiment_factors": ["news_sentiment"],
+        "factor_weights": {
+          "rsi": 0.2,
+          "macd": 0.2,
+          "bollinger_bands": 0.2,
+          "pe_ratio": 0.2,
+          "pb_ratio": 0.1,
+          "news_sentiment": 0.1
+        },
+        "factor_count": 6,
         "created_at": "2024-01-07T10:00:00Z",
         "updated_at": "2024-01-07T11:30:00Z"
       }
@@ -887,13 +910,11 @@ Content-Type: application/json
 
 ##### 按股票代码查询配置
 ```http
-POST /api/v1/factor-config/list-by-stock
+POST /api/v1/factor-config/get-by-stock
 Content-Type: application/json
 
 {
-  "stock_code": "000001.SZ",
-  "page": 1,
-  "page_size": 10
+  "stock_code": "000001.SZ"
 }
 ```
 
@@ -903,61 +924,37 @@ Content-Type: application/json
   "code": 200,
   "message": "查询成功",
   "data": {
+    "config_id": "config_20240107_001",
     "stock_code": "000001.SZ",
-    "total": 3,
-    "page": 1,
-    "page_size": 10,
-    "configs": [
-      {
-        "config_id": "config_20240107_001",
-        "description": "基于技术指标的因子组合配置",
-        "factor_count": 3,
-        "created_at": "2024-01-07T10:00:00Z",
-        "updated_at": "2024-01-07T11:30:00Z"
-      },
-      {
-        "config_id": "config_20240107_002",
-        "description": "基于基本面指标的因子组合配置",
-        "factor_count": 4,
-        "created_at": "2024-01-07T14:00:00Z",
-        "updated_at": "2024-01-07T14:00:00Z"
-      }
-    ]
+    "description": "基于多类型因子的组合配置",
+    "technical_factors": ["rsi", "macd", "bollinger_bands"],
+    "fundamental_factors": ["pe_ratio", "pb_ratio"],
+    "sentiment_factors": ["news_sentiment"],
+    "factor_weights": {
+      "rsi": 0.2,
+      "macd": 0.2,
+      "bollinger_bands": 0.2,
+      "pe_ratio": 0.2,
+      "pb_ratio": 0.1,
+      "news_sentiment": 0.1
+    },
+    "factor_count": 6,
+    "created_at": "2024-01-07T10:00:00Z",
+    "updated_at": "2024-01-07T11:30:00Z"
   }
 }
 ```
 
-##### 验证因子组合配置
-```http
-POST /api/v1/factor-config/validate
-Content-Type: application/json
-
-{
-  "factors": ["rsi", "macd", "invalid_factor"],
-  "factor_weights": {
-    "rsi": 0.3,
-    "macd": 0.4,
-    "invalid_factor": 0.3
-  }
-}
-```
-
-**响应：**
+**股票无配置时的响应：**
 ```json
 {
-  "code": 200,
-  "message": "验证完成",
-  "data": {
-    "is_valid": false,
-    "errors": [
-      "因子 'invalid_factor' 不存在于可用因子列表中"
-    ],
-    "warnings": [],
-    "valid_factors": ["rsi", "macd"],
-    "invalid_factors": ["invalid_factor"]
-  }
+  "code": 404,
+  "message": "该股票暂无因子组合配置",
+  "data": null
 }
 ```
+
+
 
 ##### 错误响应格式
 ```json
@@ -1386,7 +1383,9 @@ CREATE TABLE factor_configurations (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
     config_id VARCHAR(64) NOT NULL UNIQUE COMMENT '配置唯一标识',
     stock_code VARCHAR(10) NOT NULL UNIQUE COMMENT '股票代码（如：000001.SZ）',
-    factors JSON NOT NULL COMMENT '选中的因子列表',
+    technical_factors JSON COMMENT '技术面因子列表',
+    fundamental_factors JSON COMMENT '基本面因子列表',
+    sentiment_factors JSON COMMENT '消息面因子列表',
     factor_weights JSON NOT NULL COMMENT '因子权重配置',
     description TEXT COMMENT '配置描述',
     is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否激活：1-激活，0-停用',
@@ -1521,3 +1520,6 @@ CREATE TABLE backtest_results (
 [2024-01-28 16:50] [简化] 移除创建单个回测任务API：删除POST /api/v1/backtest/createTask接口，因为批量创建API传入单个股票代码即可兼容单个任务创建场景，避免接口冗余
 [2024-01-28 16:55] [简化] 移除任务结果响应中的URL字段：删除performance_chart_url和detailed_results_url字段，简化API响应结构，避免不必要的额外接口设计
 [2024-01-28 17:00] [简化] 移除Redis缓存设计：删除整个缓存策略章节，包括批次状态缓存、任务状态缓存、回测结果缓存等，简化系统架构，直接从数据库查询数据
+[2024-01-28 17:05] [统一] 统一分页查询参数：将所有API接口中的page_size参数统一改为size，保持接口参数命名的一致性
+[2024-01-28 17:10] [移除] 移除因子组合配置验证接口：删除POST /api/v1/factor-config/validate接口，因为验证逻辑应该在创建配置时进行，避免接口冗余
+[2024-01-28 17:15] [重构] 因子组合管理重构：1）修改数据模型，将factors字段拆分为technical_factors、fundamental_factors、sentiment_factors三个字段，支持因子类型分类；2）更新数据库表结构，添加因子类型字段；3）修改API接口，确保一个股票只有一个配置，将list-by-stock改为get-by-stock接口；4）查询接口返回完整的因子组合详情，包括各类型因子和权重信息

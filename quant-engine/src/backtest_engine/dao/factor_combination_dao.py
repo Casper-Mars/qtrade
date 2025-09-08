@@ -123,8 +123,11 @@ class FactorCombinationDAO:
 
                 result = await session.execute(select_sql, {"config_id": config_id})
                 row = result.fetchone()
+                
+                logger.info(f"查询配置 {config_id}, 结果: {row}")
 
                 if not row:
+                    logger.warning(f"配置不存在: {config_id}")
                     return None
 
                 # 解析因子数据
@@ -147,10 +150,15 @@ class FactorCombinationDAO:
                     factors.append(factor)
 
                 config = FactorCombination(
+                    id=row.combination_id,
                     name=row.name,
                     description=row.description,
                     factors=factors,
-                    created_by=row.created_by
+                    total_weight=row.total_weight,
+                    is_active=row.is_active,
+                    created_by=row.created_by,
+                    created_at=row.created_at,
+                    updated_at=row.updated_at
                 )
 
                 return config

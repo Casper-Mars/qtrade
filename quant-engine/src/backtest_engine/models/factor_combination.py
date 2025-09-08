@@ -70,7 +70,6 @@ class FactorConfig(BaseModel):
 
     class Config:
         """Pydantic配置"""
-        use_enum_values = True
         json_encoders = {
             datetime: lambda v: v.isoformat(),
             Decimal: lambda v: float(v),

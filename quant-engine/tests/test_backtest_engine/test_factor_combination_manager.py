@@ -238,7 +238,7 @@ class TestFactorCombinationManager:
         # 设置mock返回值
         mock_validator.validate_weights.return_value = ValidationResult(is_valid=True)
         mock_dao.save_config.return_value = "test_config_id"
-        
+
         result = await manager.create_combination(
             stock_code="000001.SZ",
             description="测试组合",
@@ -302,13 +302,13 @@ class TestFactorCombinationManager:
         mock_dao.update_config.return_value = True
         validation_result = ValidationResult(is_valid=True)
         mock_validator.validate_weights.return_value = validation_result
-        
+
         update_data = {
             "technical_factors": ["RSI"],
             "factor_weights": {"RSI": 1.0},
             "description": "更新的测试组合"
         }
-        
+
         result = await manager.update_combination("test_config_id", update_data)
 
         assert result is not None
@@ -322,12 +322,12 @@ class TestFactorCombinationManager:
         """测试更新因子组合验证失败"""
         # 设置mock返回值
         mock_dao.get_config.return_value = valid_combination
-        
+
         # 设置验证失败
         validation_result = ValidationResult(is_valid=False)
         validation_result.add_error("测试错误")
         mock_validator.validate_weights.return_value = validation_result
-        
+
         update_data = {
             "technical_factors": ["RSI"],
             "factor_weights": {"RSI": 1.5},  # 无效权重

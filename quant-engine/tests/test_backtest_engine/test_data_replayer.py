@@ -10,8 +10,6 @@
 - 缓存管理
 """
 
-import asyncio
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
@@ -41,7 +39,7 @@ class TestDataSnapshot:
             volume=1000000,
             market_cap=50000000000
         )
-        
+
         assert snapshot.timestamp == "2024-01-15"
         assert snapshot.stock_code == "000001.SZ"
         assert snapshot.price_data["close"] == 10.5
@@ -111,21 +109,21 @@ class TestDataReplayer:
             'cal_date': ['20240115', '20240116', '20240117'],
             'is_open': [1, 1, 1]
         })
-        
+
         with patch('asyncio.get_event_loop') as mock_loop:
             mock_executor = AsyncMock()
             mock_executor.return_value = mock_cal_data
             mock_loop.return_value.run_in_executor = mock_executor
-            
+
             result = await data_replayer._get_trading_dates("2024-01-15", "2024-01-17")
-            
+
             assert result == ['20240115', '20240116', '20240117']
 
     @pytest.mark.asyncio
     async def test_get_trading_calendar_api_not_initialized(self, data_replayer):
         """测试API未初始化时获取交易日历"""
         data_replayer.data_client._api = None
-        
+
         # API未初始化时会回退到生成工作日序列，不会抛出异常
         result = await data_replayer._get_trading_dates("2024-01-15", "2024-01-17")
         assert isinstance(result, list)
@@ -134,12 +132,12 @@ class TestDataReplayer:
     async def test_get_trading_calendar_empty_result(self, data_replayer):
         """测试获取交易日历返回空结果"""
         mock_cal_data = pd.DataFrame()
-        
+
         with patch('asyncio.get_event_loop') as mock_loop:
             mock_executor = AsyncMock()
             mock_executor.return_value = mock_cal_data
             mock_loop.return_value.run_in_executor = mock_executor
-            
+
             # 空结果时会回退到生成工作日序列
             result = await data_replayer._get_trading_dates("2024-01-15", "2024-01-17")
             assert isinstance(result, list)
@@ -175,12 +173,12 @@ class TestDataReplayer:
             'amount': [10500000],
             'pct_chg': [5.0]
         })
-        
+
         with patch.object(data_replayer.data_client, 'get_daily_data', new_callable=AsyncMock) as mock_get_daily:
             mock_get_daily.return_value = mock_daily_data
-            
+
             result = await data_replayer._get_price_data("000001.SZ", "2024-01-15")
-            
+
             expected = {
                 'open': 10.0,
                 'high': 11.0,
@@ -197,7 +195,7 @@ class TestDataReplayer:
         """测试获取价格数据返回空结果"""
         with patch.object(data_replayer.data_client, 'get_daily_data', new_callable=AsyncMock) as mock_get_daily:
             mock_get_daily.return_value = pd.DataFrame()
-            
+
             with pytest.raises(ValidationException, match="无法获取.*的价格数据"):
                 await data_replayer._get_price_data("000001.SZ", "2024-01-15")
 
@@ -209,13 +207,13 @@ class TestDataReplayer:
         mock_response.technical_factors = {'rsi': 65.5, 'macd': 0.15}
         mock_response.fundamental_factors = {'pe_ratio': 15.2}
         mock_response.market_factors = {'market_cap': 50000000000}
-        
+
         data_replayer.factor_service.calculate_all_factors = AsyncMock(return_value=mock_response)
-        
+
         result = await data_replayer._get_factor_data(
             "000001.SZ", "2024-01-15", mock_factor_config, BacktestMode.HISTORICAL_SIMULATION
         )
-        
+
         expected = {
             'rsi': 65.5,
             'macd': 0.15,
@@ -229,11 +227,11 @@ class TestDataReplayer:
     async def test_get_factor_data_exception(self, data_replayer, mock_factor_config):
         """测试获取因子数据异常"""
         data_replayer.factor_service.calculate_all_factors = AsyncMock(side_effect=Exception("计算失败"))
-        
+
         result = await data_replayer._get_factor_data(
             "000001.SZ", "2024-01-15", mock_factor_config, BacktestMode.HISTORICAL_SIMULATION
         )
-        
+
         assert result == {}
 
     @pytest.mark.asyncio
@@ -248,24 +246,24 @@ class TestDataReplayer:
             'volume': 1000000,
             'amount': 10500000
         }
-        
+
         # 模拟因子数据
         mock_factor_data = {
             'rsi': 65.5,
             'macd': 0.15,
             'total_market_cap': 50000000000
         }
-        
+
         with patch.object(data_replayer, '_get_price_data', new_callable=AsyncMock) as mock_get_price, \
              patch.object(data_replayer, '_get_factor_data', new_callable=AsyncMock) as mock_get_factor:
-            
+
             mock_get_price.return_value = mock_price_data
             mock_get_factor.return_value = mock_factor_data
-            
+
             result = await data_replayer.get_snapshot(
                 "000001.SZ", "2024-01-15", mock_factor_config
             )
-            
+
             assert isinstance(result, DataSnapshot)
             assert result.timestamp == "2024-01-15"
             assert result.stock_code == "000001.SZ"
@@ -284,14 +282,14 @@ class TestDataReplayer:
             price_data={"close": 10.5},
             factor_data={"rsi": 65.5}
         )
-        
+
         cache_key = "000001.SZ_2024-01-15_historical_simulation"
         data_replayer._cache[cache_key] = cached_snapshot
-        
+
         result = await data_replayer.get_snapshot(
             "000001.SZ", "2024-01-15", mock_factor_config
         )
-        
+
         assert result == cached_snapshot
 
     @pytest.mark.asyncio
@@ -299,7 +297,7 @@ class TestDataReplayer:
         """测试成功回放数据"""
         # 模拟交易日历
         trading_dates = ['2024-01-15', '2024-01-16']
-        
+
         # 模拟数据快照
         mock_snapshots = [
             DataSnapshot(
@@ -315,19 +313,19 @@ class TestDataReplayer:
                 factor_data={"rsi": 67.2}
             )
         ]
-        
+
         with patch.object(data_replayer, '_get_trading_dates', new_callable=AsyncMock) as mock_get_calendar, \
              patch.object(data_replayer, 'get_snapshot', new_callable=AsyncMock) as mock_get_snapshot:
-            
+
             mock_get_calendar.return_value = trading_dates
             mock_get_snapshot.side_effect = mock_snapshots
-            
+
             snapshots = []
             async for snapshot in data_replayer.replay_data(
                 "000001.SZ", "2024-01-15", "2024-01-16", mock_factor_config
             ):
                 snapshots.append(snapshot)
-            
+
             assert len(snapshots) == 2
             assert snapshots[0].timestamp == "2024-01-15"
             assert snapshots[1].timestamp == "2024-01-16"
@@ -337,7 +335,7 @@ class TestDataReplayer:
         """测试无交易日时回放数据"""
         with patch.object(data_replayer, '_get_trading_dates', new_callable=AsyncMock) as mock_get_calendar:
             mock_get_calendar.return_value = []
-            
+
             with pytest.raises(ValidationException, match="指定时间范围内无交易日"):
                 async for _ in data_replayer.replay_data(
                     "000001.SZ", "2024-01-15", "2024-01-16", mock_factor_config
@@ -352,7 +350,7 @@ class TestDataReplayer:
             price_data={"open": 10.0, "high": 11.0, "low": 9.5, "close": 10.5},
             factor_data={"rsi": 65.5, "macd": 0.15}
         )
-        
+
         result = data_replayer._validate_snapshot(snapshot)
         assert result is True
 
@@ -364,7 +362,7 @@ class TestDataReplayer:
             price_data={"open": -1.0, "high": 11.0, "low": 9.5, "close": 10.5},  # 负价格
             factor_data={"rsi": 65.5}
         )
-        
+
         result = data_replayer._validate_snapshot(snapshot)
         assert result is False
 
@@ -376,7 +374,7 @@ class TestDataReplayer:
             price_data={"open": 10.0, "high": 11.0, "low": 9.5, "close": 10.5},
             factor_data={"rsi": float('nan'), "macd": 0.15}  # NaN因子
         )
-        
+
         result = data_replayer._validate_snapshot(snapshot)
         assert result is True  # 允许部分因子缺失
 
@@ -413,7 +411,7 @@ class TestDataReplayer:
         # 添加一些缓存数据
         data_replayer._cache["test_key"] = "test_value"
         assert len(data_replayer._cache) == 1
-        
+
         # 清空缓存
         data_replayer.clear_cache()
         assert len(data_replayer._cache) == 0
@@ -422,7 +420,7 @@ class TestDataReplayer:
     async def test_replay_data_with_validation(self, data_replayer, mock_factor_config):
         """测试带验证的数据回放"""
         trading_dates = ['2024-01-15', '2024-01-16']
-        
+
         # 创建一个有效快照和一个无效快照
         valid_snapshot = DataSnapshot(
             timestamp="2024-01-15",
@@ -430,28 +428,28 @@ class TestDataReplayer:
             price_data={"close": 10.5},
             factor_data={"rsi": 65.5}
         )
-        
+
         invalid_snapshot = DataSnapshot(
             timestamp="2024-01-16",
             stock_code="000001.SZ",
             price_data={"close": -1.0},  # 无效价格
             factor_data={"rsi": 67.2}
         )
-        
+
         with patch.object(data_replayer, '_get_trading_dates', new_callable=AsyncMock) as mock_get_calendar, \
              patch.object(data_replayer, 'get_snapshot', new_callable=AsyncMock) as mock_get_snapshot, \
              patch.object(data_replayer, '_validate_snapshot') as mock_validate:
-            
+
             mock_get_calendar.return_value = trading_dates
             mock_get_snapshot.side_effect = [valid_snapshot, invalid_snapshot]
             mock_validate.side_effect = [True, False]  # 第一个有效，第二个无效
-            
+
             snapshots = []
             async for snapshot in data_replayer.replay_data(
                 "000001.SZ", "2024-01-15", "2024-01-16", mock_factor_config
             ):
                 snapshots.append(snapshot)
-            
+
             # 只应该返回有效的快照
             assert len(snapshots) == 1
             assert snapshots[0].timestamp == "2024-01-15"

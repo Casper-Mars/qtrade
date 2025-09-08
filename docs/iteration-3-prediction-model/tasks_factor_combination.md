@@ -43,7 +43,7 @@
 
 
 #### 功能点A4：因子组合管理器核心实现
-- [ ] 任务M004. 实现因子组合管理器核心逻辑
+- [x] 任务M004. 实现因子组合管理器核心逻辑
   - 实现FactorCombinationManager主类（参考design_backend.md第2.2.1节）
     * 实现create_combination、get_combination、update_combination、delete_combination方法
     * 集成配置验证器、存储管理器

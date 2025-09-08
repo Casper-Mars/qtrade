@@ -4,7 +4,7 @@
 """
 
 
-from ..backtest_engine.models.factor_combination import FactorCombination
+from ..models.factor_combination import FactorCombination
 
 
 class FactorCombinationDAO:

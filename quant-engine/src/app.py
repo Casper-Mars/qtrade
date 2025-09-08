@@ -10,7 +10,7 @@ from loguru import logger
 
 from .api.v1.router import api_v1_router
 from .config.settings import settings
-from .dao.connection_pool import connection_pool_manager
+from .config.connection_pool import connection_pool_manager
 from .utils.exceptions import setup_exception_handlers
 from .utils.logger import init_logger
 

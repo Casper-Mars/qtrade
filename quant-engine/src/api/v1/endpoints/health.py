@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter
 from loguru import logger
 
-from src.dao.connection_pool import connection_pool_manager, get_connection_stats
+from src.config.connection_pool import connection_pool_manager, get_connection_stats
 
 from ....clients.data_collector_client import get_data_collector_client
 from ....config.settings import settings

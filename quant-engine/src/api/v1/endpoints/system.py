@@ -8,7 +8,7 @@ import psutil
 from fastapi import APIRouter
 from loguru import logger
 
-from src.dao.connection_pool import get_connection_stats
+from src.config.connection_pool import get_connection_stats
 
 from ....config.settings import settings
 

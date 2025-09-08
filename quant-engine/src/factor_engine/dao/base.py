@@ -575,7 +575,7 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         from sqlalchemy import and_, select
         from sqlalchemy.exc import SQLAlchemyError
 
-        from ...dao.connection_pool import get_db_session
+        from ...config.connection_pool import get_db_session
 
         try:
             async with get_db_session() as session:
@@ -653,7 +653,7 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         from sqlalchemy import and_, select
         from sqlalchemy.exc import SQLAlchemyError
 
-        from ...dao.connection_pool import get_db_session
+        from ...config.connection_pool import get_db_session
         from ..models.schemas import SentimentFactorResponse
 
         try:
@@ -708,7 +708,7 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         from sqlalchemy import desc, select
         from sqlalchemy.exc import SQLAlchemyError
 
-        from ...dao.connection_pool import get_db_session
+        from ...config.connection_pool import get_db_session
         from ..models.schemas import SentimentFactorResponse
 
         try:
@@ -762,7 +762,7 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         from sqlalchemy import desc, select
         from sqlalchemy.exc import SQLAlchemyError
 
-        from ...dao.connection_pool import get_db_session
+        from ...config.connection_pool import get_db_session
 
         try:
             async with get_db_session() as session:
@@ -811,7 +811,7 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         from sqlalchemy import and_, func, select
         from sqlalchemy.exc import SQLAlchemyError
 
-        from ...dao.connection_pool import get_db_session
+        from ...config.connection_pool import get_db_session
 
         try:
             async with get_db_session() as session:

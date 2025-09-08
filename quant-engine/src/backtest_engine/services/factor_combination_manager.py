@@ -9,7 +9,7 @@
 
 from decimal import Decimal
 
-from ...dao.factor_combination_dao import FactorCombinationDAO
+from ..dao.factor_combination_dao import FactorCombinationDAO
 from ..models.factor_combination import (
     FactorCombination,
     FactorConfig,

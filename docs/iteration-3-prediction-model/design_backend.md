@@ -170,6 +170,7 @@ graph TB
 **开发语言：** Python 3.11+（与现有系统保持一致）
 **Web框架：** FastAPI（复用现有框架）
 **数据处理：** Pandas、NumPy（数据分析和计算）
+**回测框架：** Backtrader（功能完整、支持复杂策略、社区活跃、文档丰富）
 **配置管理：** 
 - Pydantic（数据验证和配置管理）
 - JSON Schema（配置结构验证）
@@ -308,7 +309,7 @@ class BacktestEngine:
     async def run_factor_combination_test(
         self,
         stock_code: str,
-        factor_combinations: List[FactorCombination],
+        factor_combinations: List[BacktestFactorConfig],
         start_date: str,
         end_date: str,
         backtest_mode: BacktestMode = BacktestMode.HISTORICAL_SIMULATION
@@ -331,7 +332,7 @@ class BacktestEngine:
         self,
         timestamp: str,
         symbol: str,
-        factor_combination: FactorCombination,
+        factor_combination: BacktestFactorConfig,
         mode: BacktestMode
     ) -> Dict:
         """获取因子数据，根据因子组合配置直接获取所需因子
@@ -355,7 +356,7 @@ class BacktestEngine:
         timestamp: str,
         symbol: str,
         mode: BacktestMode,
-        factor_combination: FactorCombination
+        factor_combination: BacktestFactorConfig
     ) -> Dict:
         """从因子服务获取指定股票的所有可用因子数据
         
@@ -374,7 +375,7 @@ class SignalGenerator:
     def generate_signals(
         self,
         factor_data: Dict,
-        factor_combination: FactorCombination,
+        factor_combination: BacktestFactorConfig,
         threshold_config: Dict = None
     ) -> TradingSignal:
         """生成交易信号，基于动态因子组合权重
@@ -398,7 +399,7 @@ class SignalGenerator:
     def _calculate_composite_score(
         self,
         factor_data: Dict,
-        factor_combination: FactorCombination
+        factor_combination: BacktestFactorConfig
     ) -> float:
         """计算因子综合评分
         
@@ -440,7 +441,7 @@ class BacktestConfig(BaseModel):
     stock_code: str  # 单个股票代码，每次回测只针对一只股票
     start_date: str
     end_date: str
-    factor_combination: FactorCombination  # 因子组合配置
+    factor_combination: BacktestFactorConfig  # 因子组合配置
     optimization_result_id: Optional[str] = None  # 优化引擎结果ID，如果指定则使用优化后的因子组合
     rebalance_frequency: str = "daily"
     transaction_cost: float = 0.001
@@ -454,8 +455,8 @@ class FactorItem(BaseModel):
     factor_type: str  # 因子类型："technical", "fundamental", "market", "sentiment"
     weight: float  # 因子权重
     
-class FactorCombination(BaseModel):
-    """因子组合配置"""
+class BacktestFactorConfig(BaseModel):
+    """回测因子组合配置"""
     factors: List[FactorItem]  # 因子列表，按类型分组
     combination_id: str
     description: Optional[str] = None
@@ -495,7 +496,7 @@ class FactorCombination(BaseModel):
 class BacktestResult(BaseModel):
     """回测结果"""
     # 回测配置信息
-    factor_combination: FactorCombination  # 使用的因子组合和权重
+    factor_combination: BacktestFactorConfig  # 使用的因子组合和权重
     start_date: str  # 回测开始日期
     end_date: str  # 回测结束日期
     stock_code: str  # 股票代码
@@ -1475,7 +1476,7 @@ CREATE TABLE backtest_results (
 [2025-01-07 15:45] [新增] [添加历史模拟和模型验证两种回测模式支持，包括时序图、接口设计、数据模型、数据库表结构和缓存策略的相应修改]
 [2025-01-07 16:00] [修正] 修改回测引擎模块时序图，将数据获取部分改为alt分支结构，区分历史模拟模式和模型验证模式的不同数据获取逻辑
 [2025-01-07 16:15] [优化] 详细化回测引擎时序图，以比亚迪股票为例展示完整回测流程，包括参数验证、数据获取、因子计算、信号生成、交易执行和收益计算等关键步骤
-[2025-01-07 16:30] [重构] 重构回测引擎设计以支持动态因子组合和权重配置，包括：1)扩展FactorCombination类添加权重管理方法；2)修改get_factor_data接口支持因子过滤；3)更新SignalGenerator支持动态权重计算；4)优化时序图体现因子过滤流程
+[2025-01-07 16:30] [重构] 重构回测引擎设计以支持动态因子组合和权重配置，包括：1)扩展BacktestFactorConfig类添加权重管理方法；2)修改get_factor_data接口支持因子过滤；3)更新SignalGenerator支持动态权重计算；4)优化时序图体现因子过滤流程
 [2025-01-07 16:35] [修改] 移除时序图中保存当日回测记录的步骤，简化回测流程
 [2025-01-07 16:40] [扩展] 扩展BacktestResult数据模型，增加因子组合、权重、日期和股票代码字段，完善回测结果信息
 [2025-01-07 16:45] [修改] 统一回测接口参数设计，将get_factor_data和_fetch_all_factors方法的symbols参数改为symbol，保持单股票回测的设计一致性
@@ -1483,11 +1484,12 @@ CREATE TABLE backtest_results (
 [2025-01-07 16:55] [优化] 优化时序图设计，遵循松耦合原则，回测引擎只调用因子服务接口，不关心其内部实现细节]
 [2025-01-07 17:00] [修改] 更新因子服务接口调用，将get_factors方法改为calculate_all_factors，使用UnifiedFactorRequest/Response，与现有代码保持一致
 [2025-01-07 17:05] [优化] 根据现有接口能力优化因子获取流程：移除factor_lookback_days配置（接口不支持），直接在请求中传入具体因子列表，移除后续过滤步骤
-[2025-01-07 17:10] [重构] 重构因子组合配置结构：1)新增FactorItem模型支持因子类型分类；2)修改FactorCombination支持按技术面、基本面、市场面、情绪面分类管理因子；3)更新_fetch_all_factors方法按类型提取因子并调用calculate_all_factors接口；4)更新时序图添加sentiment_factors参数
+[2025-01-07 17:10] [重构] 重构因子组合配置结构：1)新增FactorItem模型支持因子类型分类；2)修改BacktestFactorConfig支持按技术面、基本面、市场面、情绪面分类管理因子；3)更新_fetch_all_factors方法按类型提取因子并调用calculate_all_factors接口；4)更新时序图添加sentiment_factors参数
 [2025-01-07 17:15] [移除] 移除性能评估模块：1)删除PerformanceEngine类及相关接口；2)移除架构图中的性能评估引擎节点；3)删除时序图中的性能评估步骤；4)更新章节编号，任务管理模块从2.4改为2.3。原因：回测引擎的ReturnCalculator已包含所有绩效计算功能，避免功能重复
 [2025-01-07 17:20] [优化] 优化数据库设计：1)修改回测任务表，将stock_codes改为stock_code支持单股票回测，新增backtest_mode、factor_combination_id等字段；2)优化因子组合表，移除stock_code字段，新增source_type和optimization_task_id字段；3)新增optimization_results表存储优化引擎结果；4)删除historical_factor_cache表，复用现有因子服务；5)简化Redis缓存策略。原因：与功能模块设计保持一致，避免数据冗余
 [2025-01-07 17:25] [简化] 移除回测任务表progress字段：删除执行进度百分比字段，简化任务状态管理为完成/未完成二元状态，符合KISS设计原则，降低系统复杂度
 [2025-01-07 17:30] [重构] 删除优化结果表和因子组合表，将因子组合信息直接存储在回测结果表中，简化数据库设计，只保留最优回测结果
+[2025-01-08 10:00] [重命名] 将回测引擎中的FactorCombination类重命名为BacktestFactorConfig，避免与因子组合管理模块中的概念冲突，更好地体现其在回测场景下的用途
 [2025-01-07 17:35] [简化] 删除回测详细记录表，进一步简化数据库设计，只保留核心的回测结果汇总数据
 [2025-01-07 17:40] [补充] 为任务管理模块添加业务流程时序图，展示任务提交、执行、监控、异常处理和取消的完整流程
 [2025-01-07 17:45] [新增] 为任务管理模块添加HTTP API接口设计，包含创建任务、查询任务状态、查询任务列表、取消任务、获取任务结果等CRUD操作的REST API

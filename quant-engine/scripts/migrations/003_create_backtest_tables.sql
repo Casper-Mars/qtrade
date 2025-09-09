@@ -3,24 +3,6 @@
 -- 创建时间: 2024-01-01
 -- 描述: 创建回测结果、任务和批次管理表
 
--- 创建回测批次表
-CREATE TABLE IF NOT EXISTS backtest_batches (
-    id CHAR(36) PRIMARY KEY COMMENT '批次ID',
-    name VARCHAR(255) NOT NULL COMMENT '批次名称',
-    description TEXT COMMENT '批次描述',
-    status ENUM('pending', 'running', 'completed', 'failed', 'cancelled') NOT NULL DEFAULT 'pending' COMMENT '批次状态',
-    total_tasks INT NOT NULL DEFAULT 0 COMMENT '总任务数',
-    completed_tasks INT NOT NULL DEFAULT 0 COMMENT '已完成任务数',
-    failed_tasks INT NOT NULL DEFAULT 0 COMMENT '失败任务数',
-    config JSON COMMENT '批次配置信息',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    started_at TIMESTAMP NULL COMMENT '开始时间',
-    completed_at TIMESTAMP NULL COMMENT '完成时间',
-    
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回测批次表';
 
 -- 创建回测任务表
 CREATE TABLE IF NOT EXISTS backtest_tasks (
@@ -32,7 +14,6 @@ CREATE TABLE IF NOT EXISTS backtest_tasks (
     config JSON NOT NULL COMMENT '回测配置',
     result_id CHAR(36) COMMENT '关联的结果ID',
     error_message TEXT COMMENT '错误信息',
-    progress DECIMAL(5,2) DEFAULT 0.00 COMMENT '执行进度(0-100)',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     started_at TIMESTAMP NULL COMMENT '开始时间',
@@ -108,29 +89,3 @@ CREATE TABLE IF NOT EXISTS backtest_results (
     FOREIGN KEY (task_id) REFERENCES backtest_tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (batch_id) REFERENCES backtest_batches(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回测结果表';
-
--- 创建回测结果汇总视图（可选，用于快速查询）
-CREATE OR REPLACE VIEW backtest_summary AS
-SELECT 
-    br.stock_code,
-    br.backtest_mode,
-    COUNT(*) as total_backtests,
-    AVG(br.total_return) as avg_total_return,
-    AVG(br.annual_return) as avg_annual_return,
-    AVG(br.sharpe_ratio) as avg_sharpe_ratio,
-    AVG(br.max_drawdown) as avg_max_drawdown,
-    MAX(br.total_return) as best_return,
-    MIN(br.total_return) as worst_return,
-    AVG(br.win_rate) as avg_win_rate,
-    MAX(br.created_at) as last_backtest_date
-FROM backtest_results br
-GROUP BY br.stock_code, br.backtest_mode;
-
--- 添加表注释
-ALTER TABLE backtest_batches COMMENT = '回测批次管理表，用于组织和管理批量回测任务';
-ALTER TABLE backtest_tasks COMMENT = '回测任务表，记录每个具体的回测任务信息和状态';
-ALTER TABLE backtest_results COMMENT = '回测结果表，存储回测执行后的详细绩效数据和统计信息';
-
--- 插入初始数据（可选）
--- INSERT INTO backtest_batches (id, name, description, status) 
--- VALUES ('default-batch-001', '默认批次', '系统默认回测批次', 'pending');

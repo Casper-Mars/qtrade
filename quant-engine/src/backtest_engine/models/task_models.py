@@ -138,7 +138,7 @@ class TaskRequest(BaseModel):
 class TaskInfo(BaseModel):
     """任务信息模型
 
-    存储任务的完整信息，包括状态、进度、结果等
+    存储任务的完整信息，包括状态、结果等
     """
     task_id: str = Field(..., description="任务唯一标识")
     batch_id: str | None = Field(None, description="批次ID，用于分组查询")
@@ -150,7 +150,6 @@ class TaskInfo(BaseModel):
     factor_combination_id: str | None = Field(None, description="因子组合ID")
     config: dict[str, Any] = Field(default_factory=dict, description="任务配置")
     status: TaskStatus = Field(default=TaskStatus.PENDING, description="任务状态")
-    progress: float = Field(default=0.0, description="执行进度(0-100)", ge=0, le=100)
     error_message: str | None = Field(None, description="错误信息")
     backtest_result_id: str | None = Field(None, description="关联的回测结果ID")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), description="创建时间")
@@ -195,7 +194,6 @@ class TaskInfo(BaseModel):
             factor_combination_id=request.factor_combination_id,
             config=request.config,
             status=TaskStatus.PENDING,
-            progress=0.0,
             error_message=None,
             backtest_result_id=None,
             started_at=None,
@@ -224,10 +222,8 @@ class TaskInfo(BaseModel):
         # 根据状态更新相关字段
         if new_status == TaskStatus.RUNNING and old_status == TaskStatus.PENDING:
             self.started_at = datetime.now(UTC)
-            self.progress = 0.0
         elif new_status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
             self.completed_at = datetime.now(UTC)
-            self.progress = 100.0 if new_status == TaskStatus.COMPLETED else self.progress
 
         # 设置错误信息
         if new_status == TaskStatus.FAILED:
@@ -236,16 +232,6 @@ class TaskInfo(BaseModel):
             self.error_message = None  # 清除之前的错误信息
 
         return True
-
-    def update_progress(self, progress: float) -> None:
-        """更新任务进度
-
-        Args:
-            progress: 进度值(0-100)
-        """
-        if 0 <= progress <= 100:
-            self.progress = progress
-            self.updated_at = datetime.now(UTC)
 
     def set_result(self, backtest_result_id: str) -> None:
         """设置回测结果ID

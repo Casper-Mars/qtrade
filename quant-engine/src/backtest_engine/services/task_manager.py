@@ -196,7 +196,6 @@ class TaskManager:
                 'task_id': task_info.task_id,
                 'task_name': task_info.task_name,
                 'status': task_info.status.value,
-                'progress': task_info.progress,
                 'backtest_result_id': task_info.backtest_result_id,
                 'created_at': task_info.created_at.isoformat() if task_info.created_at else None,
                 'started_at': task_info.started_at.isoformat() if task_info.started_at else None,

@@ -84,7 +84,6 @@ class BacktestTaskTable(Base):
     config: Any = Column(JSON, nullable=False, comment="回测配置")
     result_id: Any = Column(CHAR(36), comment="关联的结果ID")
     error_message: Any = Column(Text, comment="错误信息")
-    progress: Any = Column(DECIMAL(5, 2), default=0.00, comment="执行进度(0-100)")
     created_at = Column(
         DateTime,
         default=func.current_timestamp(),

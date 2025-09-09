@@ -15,7 +15,12 @@ from uuid import UUID
 import backtrader as bt  # type: ignore
 import numpy as np
 
-from ..models.backtest_models import BacktestFactorConfig, BacktestMode, BacktestResult
+from ..models.backtest_models import (
+    BacktestConfig,
+    BacktestFactorConfig,
+    BacktestMode,
+    BacktestResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +73,16 @@ class BacktraderAnalyzer:
             logger.error(f"添加分析器失败: {e}")
             raise
 
-    def extract_results(self, strategy_results: list[bt.Strategy]) -> BacktestResult:
+    def extract_results(
+        self,
+        strategy_results: list[bt.Strategy],
+        config: BacktestConfig | None = None
+    ) -> BacktestResult:
         """提取回测结果
 
         Args:
             strategy_results: 策略执行结果列表
+            config: 回测配置（可选）
 
         Returns:
             格式化的回测结果
@@ -92,15 +102,28 @@ class BacktraderAnalyzer:
             backtrader_metrics = self._extract_backtrader_metrics(analyzers)
             portfolio_data = self._extract_portfolio_data(analyzers)
 
+            # 创建默认因子配置
+            from ..models.backtest_models import FactorItem
+            default_factor = FactorItem(
+                factor_name="default",
+                factor_type="technical",
+                weight=1.0
+            )
+            default_factor_combination = BacktestFactorConfig(
+                combination_id="default",
+                factors=[default_factor],
+                description="默认因子组合"
+            )
+
             # 构建回测结果
             result = BacktestResult(
-                # 基础信息 - 使用UUID类型
-                config_id=UUID('00000000-0000-0000-0000-000000000000'),  # 将由调用方设置
-                factor_combination=BacktestFactorConfig(combination_id="temp", factors=[], description="临时配置"),  # 将由调用方设置
-                start_date="",  # 将由调用方设置
-                end_date="",    # 将由调用方设置
-                stock_code="",  # 将由调用方设置
-                backtest_mode=BacktestMode.HISTORICAL_SIMULATION,  # 将由调用方设置
+                # 基础信息
+                config_id=config.id if config else UUID('00000000-0000-0000-0000-000000000000'),
+                factor_combination=config.factor_combination if config else default_factor_combination,
+                start_date=config.start_date if config else "2023-01-01",
+                end_date=config.end_date if config else "2023-12-31",
+                stock_code=config.stock_code if config else "000001.SZ",
+                backtest_mode=config.backtest_mode if config else BacktestMode.HISTORICAL_SIMULATION,
 
                 # 核心绩效指标
                 total_return=performance_metrics.get('total_return', 0.0),
@@ -244,10 +267,10 @@ class BacktraderAnalyzer:
                 # 交易次数
                 stats['trade_count'] = trade_analysis.get('total', {}).get('total', 0)
 
-                # 胜率
+                # 胜率（小数格式，0-1之间）
                 won_trades = trade_analysis.get('won', {}).get('total', 0)
                 total_trades = stats['trade_count']
-                stats['win_rate'] = (won_trades / total_trades * 100) if total_trades > 0 else 0.0
+                stats['win_rate'] = (won_trades / total_trades) if total_trades > 0 else 0.0
 
                 # 平均盈利和亏损
                 stats['avg_win'] = trade_analysis.get('won', {}).get('pnl', {}).get('average', 0.0)

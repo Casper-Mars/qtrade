@@ -22,9 +22,7 @@ CREATE TABLE IF NOT EXISTS backtest_tasks (
     INDEX idx_batch_id (batch_id),
     INDEX idx_status (status),
     INDEX idx_created_at (created_at),
-    INDEX idx_result_id (result_id),
-    
-    FOREIGN KEY (batch_id) REFERENCES backtest_batches(id) ON DELETE CASCADE
+    INDEX idx_result_id (result_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回测任务表';
 
 -- 创建回测结果表
@@ -84,8 +82,5 @@ CREATE TABLE IF NOT EXISTS backtest_results (
     INDEX idx_backtest_mode (backtest_mode),
     INDEX idx_created_at (created_at),
     INDEX idx_total_return (total_return),
-    INDEX idx_sharpe_ratio (sharpe_ratio),
-    
-    FOREIGN KEY (task_id) REFERENCES backtest_tasks(id) ON DELETE CASCADE,
-    FOREIGN KEY (batch_id) REFERENCES backtest_batches(id) ON DELETE CASCADE
+    INDEX idx_sharpe_ratio (sharpe_ratio)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回测结果表';

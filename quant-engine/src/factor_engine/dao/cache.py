@@ -80,9 +80,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["hot_factors"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"缓存技术因子数据失败: {e}")
             return False
@@ -127,9 +128,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["hot_factors"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"批量缓存技术因子数据失败: {e}")
             return False
@@ -172,9 +174,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["hot_factors"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"缓存基本面因子数据失败: {e}")
             return False
@@ -218,9 +221,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["hot_factors"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"批量缓存基本面因子数据失败: {e}")
             return False
@@ -263,9 +267,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["hot_factors"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"缓存市场因子数据失败: {e}")
             return False
@@ -310,9 +315,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["hot_factors"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"批量缓存市场因子数据失败: {e}")
             return False
@@ -361,9 +367,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["hot_factors"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"缓存新闻情绪因子数据失败: {e}")
             return False
@@ -399,9 +406,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            cache_result = self.redis_client.setex(
                 key, self.ttl_config["calculation_result"], serialized_data
             )
+            return bool(cache_result)
         except Exception as e:
             print(f"缓存计算结果失败: {e}")
             return False
@@ -433,9 +441,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["stock_basic"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"缓存股票基础信息失败: {e}")
             return False
@@ -467,9 +476,10 @@ class FactorCacheManager:
             }
 
             serialized_data = self._serialize_data(data)
-            return self.redis_client.setex(
+            result = self.redis_client.setex(
                 key, self.ttl_config["batch_task"], serialized_data
             )
+            return bool(result)
         except Exception as e:
             print(f"缓存批量任务状态失败: {e}")
             return False
@@ -494,7 +504,8 @@ class FactorCacheManager:
         try:
             keys = self.redis_client.keys(pattern)
             if keys:
-                return self.redis_client.delete(*keys)
+                result = self.redis_client.delete(*keys)
+                return int(result)
             return 0
         except Exception as e:
             print(f"删除缓存失败: {e}")

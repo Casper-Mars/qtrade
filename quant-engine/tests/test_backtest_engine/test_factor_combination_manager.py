@@ -6,6 +6,7 @@
 - 权重管理
 """
 
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -18,6 +19,7 @@ from src.backtest_engine.models.factor_combination import (
     FactorType,
     ValidationResult,
 )
+from src.backtest_engine.models.factor_combination import FactorConfig
 from src.backtest_engine.services.factor_combination_manager import (
     ConfigValidator,
     FactorCombinationManager,
@@ -37,9 +39,8 @@ class TestConfigValidator:
         """创建有效的因子配置"""
         return FactorConfig(
             name="rsi",
-            factor_type=FactorType.TECHNICAL,
-            weight=0.5,
-            is_active=True
+            factor_type="technical",
+            weight=Decimal('0.5')
         )
 
     @pytest.fixture
@@ -47,15 +48,13 @@ class TestConfigValidator:
         """创建有效的因子组合"""
         factor1 = FactorConfig(
             name="rsi",
-            factor_type=FactorType.TECHNICAL,
-            weight=0.6,
-            is_active=True
+            factor_type="technical",
+            weight=Decimal('0.6')
         )
         factor2 = FactorConfig(
             name="pe_ratio",
-            factor_type=FactorType.FUNDAMENTAL,
-            weight=0.4,
-            is_active=True
+            factor_type="fundamental",
+            weight=Decimal('0.4')
         )
         return FactorCombination(
             name="测试组合",
@@ -77,9 +76,8 @@ class TestConfigValidator:
         with pytest.raises(ValidationError):
             FactorConfig(
                 name="",
-                factor_type=FactorType.TECHNICAL,
-                weight=0.5,
-                is_active=True
+                factor_type="technical",
+                weight=Decimal('0.5')
             )
 
     @pytest.mark.asyncio
@@ -89,9 +87,8 @@ class TestConfigValidator:
         with pytest.raises(ValidationError):
             FactorConfig(
                 name="rsi",
-                factor_type=FactorType.TECHNICAL,
-                weight=1.5,  # 超出范围
-                is_active=True
+                factor_type="technical",
+                weight=Decimal('1.5')  # 超出范围
             )
 
     @pytest.mark.asyncio
@@ -149,15 +146,13 @@ class TestConfigValidator:
         """测试重复因子名称的验证"""
         factor1 = FactorConfig(
             name="rsi",
-            factor_type=FactorType.TECHNICAL,
-            weight=0.5,
-            is_active=True
+            factor_type="technical",
+            weight=Decimal('0.5')
         )
         factor2 = FactorConfig(
             name="rsi",  # 重复名称
-            factor_type=FactorType.TECHNICAL,
-            weight=0.5,
-            is_active=True
+            factor_type="technical",
+            weight=Decimal('0.5')
         )
         # Pydantic会在创建时验证，所以我们期望抛出ValidationError
         with pytest.raises(ValidationError):
@@ -216,15 +211,13 @@ class TestFactorCombinationManager:
         """创建有效的因子组合"""
         factor1 = FactorConfig(
             name="rsi",
-            factor_type=FactorType.TECHNICAL,
-            weight=0.6,
-            is_active=True
+            factor_type="technical",
+            weight=Decimal('0.6')
         )
         factor2 = FactorConfig(
             name="pe_ratio",
-            factor_type=FactorType.FUNDAMENTAL,
-            weight=0.4,
-            is_active=True
+            factor_type="fundamental",
+            weight=Decimal('0.4')
         )
         return FactorCombination(
             name="测试组合",

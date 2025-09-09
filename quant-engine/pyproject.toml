@@ -22,6 +22,8 @@ dependencies = [
     "numpy>=1.24.0",
     # 金融数据源
     "tushare>=1.2.89",
+    # 回测框架
+    "backtrader>=1.9.78.123",
     # NLP处理
     "transformers>=4.35.0",
     "torch>=2.1.0",

@@ -13,7 +13,7 @@ from decimal import Decimal
 from enum import Enum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, model_validator, validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ValidationInfo
 
 
 class BacktestMode(str, Enum):
@@ -28,7 +28,8 @@ class FactorItem(BaseModel):
     factor_type: str = Field(..., description="因子类型：technical, fundamental, market, sentiment")
     weight: float = Field(..., ge=0, le=1, description="因子权重，范围0-1")
 
-    @validator('factor_type')
+    @field_validator('factor_type')
+    @classmethod
     def validate_factor_type(cls, v: str) -> str:
         """验证因子类型"""
         valid_types = {"technical", "fundamental", "market", "sentiment"}
@@ -36,7 +37,8 @@ class FactorItem(BaseModel):
             raise ValueError(f'因子类型必须是以下之一：{valid_types}')
         return v
 
-    @validator('factor_name')
+    @field_validator('factor_name')
+    @classmethod
     def validate_factor_name(cls, v: str) -> str:
         """验证因子名称"""
         if not v or not v.strip():
@@ -47,6 +49,48 @@ class FactorItem(BaseModel):
         """Pydantic配置"""
         json_encoders = {
             Decimal: lambda v: float(v)
+        }
+
+
+class Factor(BaseModel):
+    """因子模型"""
+    name: str = Field(..., description="因子名称")
+    factor_type: str = Field(..., description="因子类型")
+    value: float = Field(..., description="因子值")
+    weight: float = Field(default=1.0, ge=0, le=1, description="因子权重")
+    timestamp: datetime = Field(default_factory=datetime.now, description="时间戳")
+
+    class Config:
+        """Pydantic配置"""
+        use_enum_values = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+
+class FactorCombination(BaseModel):
+    """因子组合模型"""
+    name: str = Field(..., description="组合名称")
+    factors: list[Factor] = Field(default_factory=list, description="因子列表")
+    total_weight: float = Field(default=1.0, description="总权重")
+    created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
+
+    def add_factor(self, factor: Factor) -> None:
+        """添加因子"""
+        self.factors.append(factor)
+        self.total_weight = sum(f.weight for f in self.factors)
+
+    def get_weighted_value(self) -> float:
+        """获取加权因子值"""
+        if not self.factors:
+            return 0.0
+        return sum(f.value * f.weight for f in self.factors) / self.total_weight
+
+    class Config:
+        """Pydantic配置"""
+        use_enum_values = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
         }
 
 
@@ -149,7 +193,8 @@ class BacktestConfig(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
 
-    @validator('stock_code')
+    @field_validator('stock_code')
+    @classmethod
     def validate_stock_code(cls, v: str) -> str:
         """验证股票代码格式"""
         if not v or not v.strip():
@@ -163,7 +208,8 @@ class BacktestConfig(BaseModel):
             raise ValueError("股票代码格式不正确")
         return v
 
-    @validator('start_date', 'end_date')
+    @field_validator('start_date', 'end_date')
+    @classmethod
     def validate_date_format(cls, v: str) -> str:
         """验证日期格式"""
         try:
@@ -172,15 +218,18 @@ class BacktestConfig(BaseModel):
             raise ValueError("日期格式不正确，应为YYYY-MM-DD") from e
         return v
 
-    @validator('end_date')
-    def validate_date_range(cls, v: str, values: dict) -> str:
+    @field_validator('end_date')
+    @classmethod
+    def validate_date_range(cls, v: str, info: ValidationInfo) -> str:
         """验证日期范围"""
-        start_date = values.get('start_date')
-        if start_date and v <= start_date:
-            raise ValueError('结束日期必须大于开始日期')
+        if info.data and 'start_date' in info.data:
+            start_date = info.data['start_date']
+            if start_date and v <= start_date:
+                raise ValueError('结束日期必须晚于开始日期')
         return v
 
-    @validator('rebalance_frequency')
+    @field_validator('rebalance_frequency')
+    @classmethod
     def validate_rebalance_frequency(cls, v: str) -> str:
         """验证调仓频率"""
         valid_frequencies = ['daily', 'weekly', 'monthly', 'quarterly']
@@ -188,7 +237,8 @@ class BacktestConfig(BaseModel):
             raise ValueError(f'调仓频率必须是以下之一：{valid_frequencies}')
         return v
 
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v: str) -> str:
         """验证配置名称"""
         if not v or not v.strip():
@@ -216,7 +266,8 @@ class TradingSignal(BaseModel):
     stock_code: str = Field(..., description="股票代码")
     factor_scores: dict[str, float] = Field(default_factory=dict, description="各因子评分")
 
-    @validator('signal_type')
+    @field_validator('signal_type')
+    @classmethod
     def validate_signal_type(cls, v: str) -> str:
         """验证信号类型"""
         valid_types = {'BUY', 'SELL', 'HOLD'}
@@ -225,7 +276,8 @@ class TradingSignal(BaseModel):
             raise ValueError(f'信号类型必须是以下之一：{valid_types}')
         return v
 
-    @validator('timestamp')
+    @field_validator('timestamp')
+    @classmethod
     def validate_timestamp(cls, v: str) -> str:
         """验证时间戳格式"""
         try:
@@ -369,7 +421,8 @@ class BacktestResultsRequest(BaseModel):
     page: int = Field(default=1, ge=1, description="页码")
     size: int = Field(default=10, ge=1, le=100, description="每页大小")
 
-    @validator('start_date', 'end_date')
+    @field_validator('start_date', 'end_date')
+    @classmethod
     def validate_date_format(cls, v: str | None) -> str | None:
         """验证日期格式"""
         if v is not None:

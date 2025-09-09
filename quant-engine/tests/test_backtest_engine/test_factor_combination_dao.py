@@ -9,9 +9,9 @@ import pytest
 from src.backtest_engine.dao.factor_combination_dao import FactorCombinationDAO
 from src.backtest_engine.models.factor_combination import (
     FactorCombination,
-    FactorConfig,
     FactorType,
 )
+from src.backtest_engine.models.factor_combination import FactorConfig
 
 
 class TestFactorCombinationDAO:
@@ -26,15 +26,9 @@ class TestFactorCombinationDAO:
     def sample_factor(self):
         """创建示例因子"""
         return FactorConfig(
-            id=str(uuid4()),
             name="测试因子",
-            factor_type=FactorType.TECHNICAL,
-            weight=Decimal('1.0'),
-            parameters={"period": 20},
-            is_active=True,
-            description="测试用因子",
-            created_at=datetime.now(),
-            updated_at=datetime.now()
+            factor_type="technical",
+            weight=Decimal('1.0')
         )
 
     @pytest.fixture

@@ -186,12 +186,13 @@ class TaskScheduler:
 
         查询数据库中状态为pending的任务，按创建时间顺序逐个处理
         """
+        logger.info("开始处理pending任务")
         try:
             task_dao = await self._get_task_dao()
             pending_tasks = await task_dao.get_pending_tasks(limit=50)
 
             if not pending_tasks:
-                logger.debug("数据库中没有待执行任务")
+                logger.info("数据库中没有待执行任务")
                 return
 
             logger.info(f"发现 {len(pending_tasks)} 个待执行任务")

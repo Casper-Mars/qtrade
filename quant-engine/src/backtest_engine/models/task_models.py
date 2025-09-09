@@ -12,7 +12,6 @@ from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
-from pydantic.fields import FieldInfo
 
 
 class TaskStatus(str, Enum):

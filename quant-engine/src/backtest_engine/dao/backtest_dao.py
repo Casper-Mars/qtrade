@@ -34,7 +34,7 @@ class BacktestDAO(BaseDAO[BacktestResultTable], CRUDMixin):
         """创建对象"""
         return await self.create_result(obj)
 
-    async def get_by_id(self, obj_id: UUID) -> BacktestResultTable | None:
+    async def get_by_id(self, obj_id: UUID | str) -> BacktestResultTable | None:
         """根据ID获取对象"""
         return await self.get_result_by_id(obj_id)
 
@@ -42,7 +42,7 @@ class BacktestDAO(BaseDAO[BacktestResultTable], CRUDMixin):
         """更新对象"""
         return await self.update_result(obj)
 
-    async def delete(self, obj_id: UUID) -> bool:
+    async def delete(self, obj_id: UUID | str) -> bool:
         """删除对象"""
         obj = await self.get_result_by_id(obj_id)
         if obj:
@@ -103,8 +103,15 @@ class BacktestDAO(BaseDAO[BacktestResultTable], CRUDMixin):
         await self.session.refresh(obj)
         return obj
 
-    async def get_result_by_id(self, obj_id: UUID) -> BacktestResultTable | None:
+    async def get_result_by_id(self, obj_id: UUID | str) -> BacktestResultTable | None:
         """根据ID获取回测结果"""
+        # 如果是字符串，转换为UUID
+        if isinstance(obj_id, str):
+            try:
+                obj_id = UUID(obj_id)
+            except ValueError:
+                return None
+
         query = select(BacktestResultTable).where(BacktestResultTable.id == obj_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
@@ -115,8 +122,15 @@ class BacktestDAO(BaseDAO[BacktestResultTable], CRUDMixin):
         await self.session.refresh(obj)
         return obj
 
-    async def delete_result(self, obj_id: UUID) -> bool:
+    async def delete_result(self, obj_id: UUID | str) -> bool:
         """删除回测结果"""
+        # 如果是字符串，转换为UUID
+        if isinstance(obj_id, str):
+            try:
+                obj_id = UUID(obj_id)
+            except ValueError:
+                return False
+
         obj = await self.get_result_by_id(obj_id)
         if obj:
             await self.session.delete(obj)

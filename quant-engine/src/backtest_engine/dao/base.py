@@ -25,7 +25,7 @@ class BaseDAO(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    async def get_by_id(self, obj_id: UUID) -> T | None:
+    async def get_by_id(self, obj_id: UUID | str) -> T | None:
         """根据ID获取对象"""
         pass
 
@@ -35,7 +35,7 @@ class BaseDAO(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    async def delete(self, obj_id: UUID) -> bool:
+    async def delete(self, obj_id: UUID | str) -> bool:
         """删除对象"""
         pass
 

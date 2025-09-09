@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, TypeVar
+from typing import Any, Generic, TypeVar
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from sqlalchemy.orm import DeclarativeBase
 T = TypeVar('T', bound=DeclarativeBase)
 
 
-class BaseDAO(ABC):
+class BaseDAO(ABC, Generic[T]):
     """基础DAO抽象类"""
 
     def __init__(self, session: AsyncSession):
@@ -40,7 +40,7 @@ class BaseDAO(ABC):
         pass
 
     @abstractmethod
-    async def list(self, skip: int = 0, limit: int = 100, **filters: Any) -> list[T]:
+    async def list_objects(self, skip: int = 0, limit: int = 100, **filters: Any) -> list[T]:
         """列表查询"""
         pass
 

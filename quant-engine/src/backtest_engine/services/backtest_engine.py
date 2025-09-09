@@ -10,17 +10,21 @@
 import logging
 from datetime import datetime
 from typing import Any
+from uuid import uuid4
 
 import backtrader as bt  # type: ignore
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...clients.tushare_client import TushareClient
 from ...factor_engine.services.factor_service import FactorService
 from ...utils.exceptions import ValidationException
+from ..dao.backtest_dao import BacktestDAO
 from ..models.backtest_models import (
     BacktestConfig,
     BacktestResult,
 )
+from ..models.database import BacktestResultTable
 from .backtrader_analyzer import BacktraderAnalyzer
 from .factor_data_feed import FactorDataFeed
 from .factor_strategy import FactorStrategy
@@ -38,15 +42,19 @@ class BacktestEngine:
         self,
         factor_service: FactorService,
         data_client: TushareClient,
+        db_session: AsyncSession | None = None,
     ):
         """初始化回测引擎
 
         Args:
             factor_service: 因子服务实例
             data_client: 数据客户端
+            db_session: 数据库会话（可选）
         """
         self.factor_service = factor_service
         self.data_client = data_client
+        self.db_session = db_session
+        self.backtest_dao = BacktestDAO(db_session) if db_session else None
 
         # Cerebro引擎实例
         self.cerebro: bt.Cerebro = bt.Cerebro()
@@ -55,7 +63,7 @@ class BacktestEngine:
         self._current_config: BacktestConfig | None = None
         self._results: list[BacktestResult] = []
 
-    def run_backtest(self, config: BacktestConfig) -> BacktestResult:
+    async def run_backtest(self, config: BacktestConfig) -> BacktestResult:
         """执行完整回测流程
 
         Args:
@@ -95,6 +103,11 @@ class BacktestEngine:
             # 7. 处理结果
             execution_time = (datetime.now() - start_time).total_seconds()
             backtest_result = self._process_results(results, config, execution_time)
+
+            # 8. 保存回测结果到数据库
+            if self.backtest_dao:
+                await self._save_backtest_result(backtest_result)
+                logger.info(f"回测结果已保存到数据库: {backtest_result.id}")
 
             logger.info(f"回测完成: 总收益率={backtest_result.total_return:.2%}")
             return backtest_result
@@ -311,6 +324,65 @@ class BacktestEngine:
         )
 
         return result
+
+    async def _save_backtest_result(self, result: BacktestResult) -> None:
+        """保存回测结果到数据库
+
+        Args:
+            result: 回测结果
+        """
+        if not self.backtest_dao:
+            return
+
+        try:
+            # 转换为数据库模型
+            db_result = BacktestResultTable(
+                id=str(uuid4()),
+                task_id=None,  # 如果有任务ID可以传入
+                batch_id=None,  # 如果有批次ID可以传入
+                stock_code=result.stock_code,
+                backtest_date=result.start_date,  # 使用start_date作为回测日期
+                mode=result.backtest_mode.value,  # 使用backtest_mode的值
+                config=result.factor_combination.model_dump(),  # 使用factor_combination
+                performance_metrics={
+                    'total_return': result.total_return,
+                    'annual_return': result.annual_return,
+                    'max_drawdown': result.max_drawdown,
+                    'sharpe_ratio': result.sharpe_ratio,
+                    'win_rate': result.win_rate,
+                },
+                trade_stats={
+                    'total_trades': result.trade_count,  # 使用trade_count
+                    'avg_profit': result.avg_profit,
+                    'avg_loss': result.avg_loss,
+                    'profit_loss_ratio': result.profit_loss_ratio,
+                    'largest_win': result.largest_win,
+                    'largest_loss': result.largest_loss,
+                },
+                risk_metrics={
+                    'volatility': result.volatility,
+                    'beta': result.beta,
+                    'var_95': result.var_95,
+                },
+                detailed_data={
+                    'portfolio_value': result.portfolio_value,  # 使用portfolio_value
+                    'benchmark_value': result.benchmark_value,
+                    'dates': result.dates,
+                },
+                metadata={
+                    'execution_time': result.execution_time,
+                    'data_points': result.data_points,
+                    'completed_at': result.completed_at.isoformat() if result.completed_at else None,
+                }
+            )
+
+            # 保存到数据库
+            await self.backtest_dao.create(db_result)
+            logger.info(f"回测结果已成功保存: {db_result.id}")
+
+        except Exception as e:
+            logger.error(f"保存回测结果失败: {e}")
+            # 不抛出异常，避免影响回测主流程
 
     def get_cerebro_info(self) -> dict[str, Any]:
         """获取Cerebro引擎信息

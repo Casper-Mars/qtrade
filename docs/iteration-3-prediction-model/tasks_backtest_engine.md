@@ -252,7 +252,7 @@
 ### 模块B：数据访问层扩展
 
 #### 功能点B1：回测数据访问层实现
-- [ ] 任务M006. 实现回测数据访问层（完整端到端实现）
+- [x] 任务M006. 实现回测数据访问层（完整端到端实现）
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -292,7 +292,7 @@
 ### 模块C：系统集成层
 
 #### 功能点C1：回测引擎与数据访问层集成
-- [ ] 任务M007. 实现BacktestEngine与BacktestDAO集成（完整端到端实现）
+- [x] 任务M007. 实现BacktestEngine与BacktestDAO集成（完整端到端实现）
   - **时序图描述**：
     ```mermaid
     sequenceDiagram

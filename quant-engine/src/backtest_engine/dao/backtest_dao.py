@@ -16,10 +16,10 @@ from ..models.database import (
     BacktestResultTable,
     BacktestTaskTable,
 )
-from .base import BaseDAO
+from .base import BaseDAO, CRUDMixin
 
 
-class BacktestDAO(BaseDAO):
+class BacktestDAO(BaseDAO[BacktestResultTable], CRUDMixin):
     """回测数据访问对象
 
     提供回测结果、任务和批次的完整CRUD操作。
@@ -28,6 +28,72 @@ class BacktestDAO(BaseDAO):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
         self.model = BacktestResultTable
+
+    # 实现BaseDAO抽象方法
+    async def create(self, obj: BacktestResultTable) -> BacktestResultTable:
+        """创建对象"""
+        return await self.create_result(obj)
+
+    async def get_by_id(self, obj_id: UUID) -> BacktestResultTable | None:
+        """根据ID获取对象"""
+        return await self.get_result_by_id(obj_id)
+
+    async def update(self, obj: BacktestResultTable) -> BacktestResultTable:
+        """更新对象"""
+        return await self.update_result(obj)
+
+    async def delete(self, obj_id: UUID) -> bool:
+        """删除对象"""
+        obj = await self.get_result_by_id(obj_id)
+        if obj:
+            return await self.delete_obj(obj)
+        return False
+
+    async def list_objects(self, skip: int = 0, limit: int = 100, **filters: Any) -> list[BacktestResultTable]:
+        """列表查询"""
+        query = select(BacktestResultTable)
+
+        # 应用过滤条件
+        if 'stock_code' in filters:
+            query = query.where(BacktestResultTable.stock_code == filters['stock_code'])
+        if 'start_date' in filters:
+            query = query.where(BacktestResultTable.start_date >= filters['start_date'])
+        if 'end_date' in filters:
+            query = query.where(BacktestResultTable.end_date <= filters['end_date'])
+        if 'backtest_mode' in filters:
+            query = query.where(BacktestResultTable.backtest_mode == filters['backtest_mode'])
+        if 'task_id' in filters:
+            query = query.where(BacktestResultTable.task_id == filters['task_id'])
+        if 'batch_id' in filters:
+            query = query.where(BacktestResultTable.batch_id == filters['batch_id'])
+
+        # 排序和分页
+        query = query.order_by(desc(BacktestResultTable.created_at))
+        query = query.offset(skip).limit(limit)
+
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def count(self, **filters: Any) -> int:
+        """计数查询"""
+        query = select(func.count(BacktestResultTable.id))
+
+        # 应用过滤条件
+        if 'stock_code' in filters:
+            query = query.where(BacktestResultTable.stock_code == filters['stock_code'])
+        if 'start_date' in filters:
+            query = query.where(BacktestResultTable.start_date >= filters['start_date'])
+        if 'end_date' in filters:
+            query = query.where(BacktestResultTable.end_date <= filters['end_date'])
+        if 'backtest_mode' in filters:
+            query = query.where(BacktestResultTable.backtest_mode == filters['backtest_mode'])
+        if 'task_id' in filters:
+            query = query.where(BacktestResultTable.task_id == filters['task_id'])
+        if 'batch_id' in filters:
+            query = query.where(BacktestResultTable.batch_id == filters['batch_id'])
+
+        result = await self.session.execute(query)
+        return result.scalar() or 0
 
     # BacktestResult CRUD操作
     async def create_result(self, obj: BacktestResultTable) -> BacktestResultTable:
@@ -58,56 +124,9 @@ class BacktestDAO(BaseDAO):
             return True
         return False
 
-    async def list_results(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        **filters: Any
-    ) -> list[BacktestResultTable]:
-        """列表查询回测结果"""
-        query = select(BacktestResultTable)
 
-        # 应用过滤条件
-        if 'stock_code' in filters:
-            query = query.where(BacktestResultTable.stock_code == filters['stock_code'])
-        if 'start_date' in filters:
-            query = query.where(BacktestResultTable.start_date >= filters['start_date'])
-        if 'end_date' in filters:
-            query = query.where(BacktestResultTable.end_date <= filters['end_date'])
-        if 'backtest_mode' in filters:
-            query = query.where(BacktestResultTable.backtest_mode == filters['backtest_mode'])
-        if 'task_id' in filters:
-            query = query.where(BacktestResultTable.task_id == filters['task_id'])
-        if 'batch_id' in filters:
-            query = query.where(BacktestResultTable.batch_id == filters['batch_id'])
 
-        # 排序和分页
-        query = query.order_by(desc(BacktestResultTable.created_at))
-        query = query.offset(skip).limit(limit)
 
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
-
-    async def count_results(self, **filters: Any) -> int:
-        """计数查询"""
-        query = select(func.count(BacktestResultTable.id))
-
-        # 应用过滤条件
-        if 'stock_code' in filters:
-            query = query.where(BacktestResultTable.stock_code == filters['stock_code'])
-        if 'start_date' in filters:
-            query = query.where(BacktestResultTable.start_date >= filters['start_date'])
-        if 'end_date' in filters:
-            query = query.where(BacktestResultTable.end_date <= filters['end_date'])
-        if 'backtest_mode' in filters:
-            query = query.where(BacktestResultTable.backtest_mode == filters['backtest_mode'])
-        if 'task_id' in filters:
-            query = query.where(BacktestResultTable.task_id == filters['task_id'])
-        if 'batch_id' in filters:
-            query = query.where(BacktestResultTable.batch_id == filters['batch_id'])
-
-        result = await self.session.execute(query)
-        return result.scalar() or 0
 
     # BacktestTask CRUD操作
     async def create_task(self, obj: BacktestTaskTable) -> BacktestTaskTable:

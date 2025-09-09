@@ -12,7 +12,7 @@ from ..dao.task_dao import TaskDAO
 from ..models.task_models import TaskInfo, TaskStatus
 from .backtest_engine import BacktestEngine
 from .factor_combination_manager import FactorCombinationManager
-
+from ...config.connection_pool import get_db_session
 
 class TaskScheduler:
     """任务调度器
@@ -237,7 +237,7 @@ class TaskScheduler:
         Raises:
             Exception: 回测执行失败时抛出异常
         """
-        from ...config.connection_pool import get_db_session
+        
 
         async with get_db_session() as session:
             try:

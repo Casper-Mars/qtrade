@@ -4,15 +4,25 @@
 """
 
 import asyncio
+from decimal import Decimal
 from typing import Any
 
 from loguru import logger
+from redis import Redis
 
 from ..dao.task_dao import TaskDAO
+from ..models.backtest_models import (
+    BacktestConfig,
+    BacktestFactorConfig,
+    FactorItem,
+)
 from ..models.task_models import TaskInfo, TaskStatus
 from .backtest_engine import BacktestEngine
 from .factor_combination_manager import FactorCombinationManager
+from ...clients.tushare_client import TushareClient
 from ...config.connection_pool import get_db_session
+from ...factor_engine.dao.factor_dao import FactorDAO
+from ...factor_engine.services.factor_service import FactorService
 
 class TaskScheduler:
     """任务调度器
@@ -55,14 +65,7 @@ class TaskScheduler:
             BacktestEngine实例
         """
         if self._backtest_engine is None:
-            from redis import Redis
-
-            from ...clients.tushare_client import TushareClient
-
             # 创建必要的依赖实例
-            from ...factor_engine.dao.factor_dao import FactorDAO
-            from ...factor_engine.services.factor_service import FactorService
-
             data_client = TushareClient()
             redis_client = Redis(host='localhost', port=6379, db=0, decode_responses=True)
             factor_dao = FactorDAO(db_session=self.db_session, redis_client=redis_client)
@@ -303,14 +306,6 @@ class TaskScheduler:
                 logger.info(f"获取因子组合配置: {task_info.factor_combination_id}")
 
             # 构建回测配置
-            from decimal import Decimal
-
-            from ..models.backtest_models import (
-                BacktestConfig,
-                BacktestFactorConfig,
-                FactorItem,
-            )
-
             # 构建BacktestFactorConfig
             if factor_combination and hasattr(factor_combination, 'factors'):
                 factor_items = [

@@ -7,6 +7,8 @@
 - 交易执行逻辑
 """
 
+import math
+
 from loguru import logger
 
 import backtrader as bt  # type: ignore
@@ -128,7 +130,6 @@ class FactorStrategy(bt.Strategy):
             normalized = 0.5
         else:
             # 使用sigmoid函数进行标准化
-            import math
             try:
                 normalized = 1 / (1 + math.exp(-value))
             except (OverflowError, ValueError):

@@ -18,6 +18,7 @@ import numpy as np
 from ..models.backtest_models import (
     BacktestConfig,
     BacktestFactorConfig,
+    FactorItem,
     BacktestMode,
     BacktestResult,
 )
@@ -101,7 +102,6 @@ class BacktraderAnalyzer:
             portfolio_data = self._extract_portfolio_data(analyzers)
 
             # 创建默认因子配置
-            from ..models.backtest_models import FactorItem
             default_factor = FactorItem(
                 factor_name="default",
                 factor_type="technical",

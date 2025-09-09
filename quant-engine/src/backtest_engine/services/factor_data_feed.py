@@ -7,9 +7,11 @@
 - 数据预处理和格式化
 """
 
-from loguru import logger
+import random
 from datetime import datetime, timedelta
 from typing import Any
+
+from loguru import logger
 
 import backtrader as bt  # type: ignore
 import pandas as pd
@@ -176,7 +178,6 @@ class FactorDataFeed(bt.feeds.PandasData):
                     # 实际实现中应该调用factor_service获取真实数据
                     for factor_name in factor_names:
                         # 生成模拟因子值
-                        import random
                         factor_record[factor_name] = random.uniform(0.3, 0.7)
 
                     factor_data_list.append(factor_record)

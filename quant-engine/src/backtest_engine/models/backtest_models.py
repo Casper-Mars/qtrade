@@ -121,7 +121,7 @@ class BacktestFactorConfig(BaseModel):
 
 
 class BacktestConfig(BaseModel):
-    """回测配置模型"""
+    """回测配置模型（基于Backtrader框架）"""
     id: UUID = Field(default_factory=uuid4, description="回测配置唯一标识")
     name: str = Field(..., min_length=1, max_length=100, description="回测配置名称")
     stock_code: str = Field(..., description="股票代码")
@@ -129,12 +129,23 @@ class BacktestConfig(BaseModel):
     end_date: str = Field(..., description="回测结束日期，格式：YYYY-MM-DD")
     factor_combination: BacktestFactorConfig = Field(..., description="因子组合配置")
     optimization_result_id: str | None = Field(None, description="优化引擎结果ID")
+
+    # Backtrader引擎配置
+    initial_capital: Decimal = Field(default=Decimal('100000'), gt=0, description="初始资金")
+    transaction_cost: float = Field(default=0.001, ge=0, le=0.1, description="交易成本（佣金率）")
+    slippage: float = Field(default=0.0001, ge=0, le=0.01, description="滑点成本")
+
+    # 策略配置
+    buy_threshold: float = Field(default=0.6, ge=0, le=1, description="买入信号阈值")
+    sell_threshold: float = Field(default=0.4, ge=0, le=1, description="卖出信号阈值")
+    max_position_size: Decimal = Field(default=Decimal('1.0'), gt=0, le=1, description="最大仓位比例")
     rebalance_frequency: str = Field(default="daily", description="调仓频率")
-    transaction_cost: float = Field(default=0.001, ge=0, le=0.1, description="交易成本")
+
+    # 回测模式和缓存
     backtest_mode: BacktestMode = Field(default=BacktestMode.HISTORICAL_SIMULATION, description="回测模式")
     use_factor_cache: bool = Field(default=True, description="是否使用因子缓存")
-    initial_capital: Decimal = Field(default=Decimal('100000'), gt=0, description="初始资金")
-    max_position_size: Decimal = Field(default=Decimal('1.0'), gt=0, le=1, description="最大仓位比例")
+
+    # 时间戳
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
 
@@ -243,7 +254,7 @@ class TradingSignal(BaseModel):
 
 
 class BacktestResult(BaseModel):
-    """回测结果模型"""
+    """回测结果模型（兼容Backtrader分析器输出）"""
     id: UUID = Field(default_factory=uuid4, description="回测结果唯一标识")
     config_id: UUID = Field(..., description="回测配置ID")
 
@@ -254,24 +265,36 @@ class BacktestResult(BaseModel):
     stock_code: str = Field(..., description="股票代码")
     backtest_mode: BacktestMode = Field(..., description="回测模式")
 
-    # 绩效指标
+    # 核心绩效指标（兼容Backtrader）
     total_return: float = Field(..., description="总收益率")
     annual_return: float = Field(..., description="年化收益率")
     max_drawdown: float = Field(..., description="最大回撤")
     sharpe_ratio: float = Field(..., description="夏普比率")
     sortino_ratio: float | None = Field(None, description="索提诺比率")
-    win_rate: float = Field(..., ge=0, le=1, description="胜率")
+    calmar_ratio: float | None = Field(None, description="卡尔马比率")
+
+    # 交易统计（Backtrader兼容）
     trade_count: int = Field(..., ge=0, description="交易次数")
+    win_rate: float = Field(..., ge=0, le=1, description="胜率")
+    avg_profit: float | None = Field(None, description="平均盈利")
+    avg_loss: float | None = Field(None, description="平均亏损")
+    profit_loss_ratio: float | None = Field(None, description="盈亏比")
+    largest_win: float | None = Field(None, description="最大单笔盈利")
+    largest_loss: float | None = Field(None, description="最大单笔亏损")
 
     # 风险指标
     volatility: float = Field(..., ge=0, description="波动率")
     var_95: float | None = Field(None, description="95%置信度VaR")
     beta: float | None = Field(None, description="贝塔系数")
 
-    # 交易统计
-    avg_profit: float | None = Field(None, description="平均盈利")
-    avg_loss: float | None = Field(None, description="平均亏损")
-    profit_loss_ratio: float | None = Field(None, description="盈亏比")
+    # Backtrader特有指标
+    sqn: float | None = Field(None, description="系统质量数（SQN）")
+    gross_leverage: float | None = Field(None, description="总杠杆率")
+
+    # 资金曲线数据（用于绘图）
+    portfolio_value: list[float] | None = Field(None, description="组合价值序列")
+    benchmark_value: list[float] | None = Field(None, description="基准价值序列")
+    dates: list[str] | None = Field(None, description="日期序列")
 
     # 执行信息
     execution_time: float = Field(..., ge=0, description="执行时间（秒）")

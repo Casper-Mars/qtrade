@@ -9,7 +9,7 @@
 ### 模块A：基于Backtrader的回测引擎模块
 
 #### 功能点A1：数据模型定义
-- [ ] 任务M001. 实现回测配置数据模型（完整端到端实现）
+- [x] 任务M001. 实现回测配置数据模型（完整端到端实现）
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -49,7 +49,7 @@
   - _集成测试点：配置验证测试、数据序列化测试、Backtrader兼容性测试_
 
 #### 功能点A2：因子数据源实现
-- [ ] 任务M002. 实现FactorDataFeed数据源（完整端到端实现）
+- [x] 任务M002. 实现FactorDataFeed数据源（完整端到端实现）
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -86,7 +86,7 @@
   - _集成测试点：数据加载测试、格式转换测试、时间同步验证_
 
 #### 功能点A3：因子策略实现
-- [ ] 任务M003. 实现FactorStrategy策略（完整端到端实现）
+- [x] 任务M003. 实现FactorStrategy策略（完整端到端实现）
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -144,7 +144,7 @@
   - _集成测试点：策略逻辑测试、信号生成测试、仓位管理测试_
 
 #### 功能点A4：绩效分析器实现
-- [ ] 任务M004. 实现PerformanceAnalyzer分析器（完整端到端实现）
+- [x] 任务M004. 实现PerformanceAnalyzer分析器（完整端到端实现）
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
@@ -189,7 +189,7 @@
   - _集成测试点：绩效计算测试、指标验证测试、实时监控测试_
 
 #### 功能点A5：回测引擎核心实现
-- [ ] 任务M005. 实现BacktestEngine核心（完整端到端实现）
+- [x] 任务M005. 实现BacktestEngine核心（完整端到端实现）
   - **时序图描述**：
     ```mermaid
     sequenceDiagram

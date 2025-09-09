@@ -7,7 +7,7 @@
 - 风险指标分析
 """
 
-import logging
+from loguru import logger
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -21,8 +21,6 @@ from ..models.backtest_models import (
     BacktestMode,
     BacktestResult,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class BacktraderAnalyzer:

@@ -7,7 +7,7 @@
 - 分析器集成和结果收集
 """
 
-import logging
+from loguru import logger
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -28,8 +28,6 @@ from ..models.database import BacktestResultTable
 from .backtrader_analyzer import BacktraderAnalyzer
 from .factor_data_feed import FactorDataFeed
 from .factor_strategy import FactorStrategy
-
-logger = logging.getLogger(__name__)
 
 
 class BacktestEngine:

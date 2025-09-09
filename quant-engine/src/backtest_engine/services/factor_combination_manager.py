@@ -10,6 +10,7 @@
 from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
+from loguru import logger
 
 from ..dao.factor_combination_dao import FactorCombinationDAO
 from ..models.factor_combination import (
@@ -238,9 +239,7 @@ class FactorCombinationManager:
             raise ValueError(f"权重配置验证失败: {'; '.join(weights_validation.errors)}")
 
         # 生成配置ID
-        import uuid
-        from datetime import datetime
-        config_id = f"config_{datetime.now().strftime('%Y%m%d')}_{str(uuid.uuid4())[:8]}"
+        config_id = f"config_{datetime.now().strftime('%Y%m%d')}_{str(uuid4())[:8]}"
 
         # 计算因子总数
         factor_count = len(technical_factors) + len(fundamental_factors) + len(sentiment_factors)
@@ -262,23 +261,15 @@ class FactorCombinationManager:
         # 保存到数据库
         try:
             # 将FactorCombinationData转换为FactorCombination对象
-            from datetime import datetime
-
-            from ..models.factor_combination import (
-                FactorCombination,
-                FactorConfig,
-                FactorType,
-            )
 
             # 创建因子配置列表
             factors = []
 
             # 添加技术因子
-            from decimal import Decimal
             for factor_name in technical_factors:
                 weight = factor_weights.get(factor_name, 0.0)
                 factor_config = FactorConfig(
-                    id=uuid.uuid4(),
+                    id=uuid4(),
                     name=factor_name,
                     factor_type=FactorType.TECHNICAL,
                     weight=Decimal(str(weight)),
@@ -294,7 +285,7 @@ class FactorCombinationManager:
             for factor_name in fundamental_factors:
                 weight = factor_weights.get(factor_name, 0.0)
                 factor_config = FactorConfig(
-                    id=uuid.uuid4(),
+                    id=uuid4(),
                     name=factor_name,
                     factor_type=FactorType.FUNDAMENTAL,
                     weight=Decimal(str(weight)),
@@ -310,7 +301,7 @@ class FactorCombinationManager:
             for factor_name in sentiment_factors:
                 weight = factor_weights.get(factor_name, 0.0)
                 factor_config = FactorConfig(
-                    id=uuid.uuid4(),
+                    id=uuid4(),
                     name=factor_name,
                     factor_type=FactorType.SENTIMENT,
                     weight=Decimal(str(weight)),
@@ -324,7 +315,7 @@ class FactorCombinationManager:
 
             # 创建FactorCombination对象
             combination = FactorCombination(
-                id=uuid.uuid4(),
+                id=uuid4(),
                 name=stock_code,  # 使用股票代码作为名称
                 description=description or f"{stock_code}的因子组合配置",
                 factors=factors,
@@ -342,8 +333,6 @@ class FactorCombinationManager:
             config_data.config_id = saved_config_id
 
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"保存因子组合配置失败: {e}")
             raise ValueError(f"保存配置失败: {e}") from e
 
@@ -370,8 +359,6 @@ class FactorCombinationManager:
             sentiment_factors = []
             factor_weights = {}
 
-            from ..models.factor_combination import FactorType
-
             for factor in combination.factors:
                 factor_weights[factor.name] = factor.weight
 
@@ -396,8 +383,6 @@ class FactorCombinationManager:
             )
 
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"查询因子组合配置失败: {e}")
             return None
 
@@ -420,8 +405,7 @@ class FactorCombinationManager:
             # 先获取现有配置
             existing_config = await self.dao.get_config(config_id)
             if not existing_config:
-                import logging
-                logger = logging.getLogger(__name__)
+                
                 logger.error(f"配置不存在: {config_id}")
                 return None
 
@@ -521,8 +505,6 @@ class FactorCombinationManager:
             )
 
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"更新因子组合配置失败: {e}")
             raise ValueError(f"更新配置失败: {e}") from e
 

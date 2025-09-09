@@ -1,0 +1,1164 @@
+openapi: 3.0.3
+info:
+  title: Quant Engine API - 第三迭代回测框架
+  description: |
+    量化计算引擎第三迭代API接口文档，包含因子组合管理、回测任务管理等功能。
+    
+    ## 主要功能模块
+    - **因子组合配置管理**: 创建、查询、更新、删除因子组合配置
+    - **回测任务管理**: 创建回测任务、查询任务状态、获取任务结果
+    - **系统健康检查**: 服务健康状态和版本信息
+  version: 0.1.0
+  contact:
+    name: Quant Engine Team
+    email: dev@qtrade.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: 本地开发环境
+  - url: http://localhost:8000/api/v1
+    description: API v1 基础路径
+
+paths:
+  # 健康检查接口
+  /health:
+    get:
+      tags:
+        - Health Check
+      summary: 系统健康检查
+      description: 检查系统整体健康状态，包括数据库连接状态
+      operationId: healthCheck
+      responses:
+        '200':
+          description: 系统健康状态正常
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "ok"
+                service: "quant-engine"
+                version: "0.1.0"
+                health:
+                  overall: true
+                  mysql:
+                    status: "ok"
+                    response_time: 5.2
+                  redis:
+                    status: "ok"
+                    response_time: 1.8
+        '500':
+          description: 系统异常
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/health/version:
+    get:
+      tags:
+        - Health Check
+      summary: 获取API版本信息
+      description: 获取服务版本、API版本、构建时间等信息
+      operationId: getVersion
+      responses:
+        '200':
+          description: 版本信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionResponse'
+              example:
+                service: "quant-engine"
+                version: "0.1.0"
+                api_version: "v1"
+                build_time: "2024-01-07T08:00:00Z"
+                git_commit: "abc123def456"
+
+  # 因子组合配置管理接口
+  /api/v1/factor-config/create:
+    post:
+      tags:
+        - Factor Configuration
+      summary: 创建因子组合配置
+      description: 创建新的因子组合配置，包括技术因子、基本面因子、情绪因子及其权重
+      operationId: createFactorConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFactorConfigRequest'
+            example:
+              stock_code: "000001.SZ"
+              description: "平安银行多因子组合策略"
+              technical_factors: ["ma_5", "ma_20", "rsi_14", "macd"]
+              fundamental_factors: ["roe", "roa", "debt_ratio"]
+              sentiment_factors: ["news_sentiment"]
+              factor_weights:
+                ma_5: 0.15
+                ma_20: 0.15
+                rsi_14: 0.10
+                macd: 0.10
+                roe: 0.20
+                roa: 0.15
+                debt_ratio: 0.10
+                news_sentiment: 0.05
+      responses:
+        '200':
+          description: 配置创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorConfigResponse'
+        '400':
+          description: 参数验证失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "因子权重总和必须等于1.0，当前总和为0.9"
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/factor-config/get:
+    post:
+      tags:
+        - Factor Configuration
+      summary: 获取因子组合配置
+      description: 根据配置ID获取因子组合配置详情
+      operationId: getFactorConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetFactorConfigRequest'
+            example:
+              config_id: "fc_20240107_001"
+      responses:
+        '200':
+          description: 获取配置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorConfigResponse'
+        '404':
+          description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "因子组合配置不存在: fc_20240107_001"
+
+  /api/v1/factor-config/get-by-stock:
+    post:
+      tags:
+        - Factor Configuration
+      summary: 按股票代码获取配置
+      description: 根据股票代码获取该股票的所有因子组合配置
+      operationId: getFactorConfigByStock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetFactorConfigByStockRequest'
+            example:
+              stock_code: "000001.SZ"
+      responses:
+        '200':
+          description: 获取配置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorConfigListResponse'
+
+  /api/v1/factor-config/update:
+    post:
+      tags:
+        - Factor Configuration
+      summary: 更新因子组合配置
+      description: 更新已存在的因子组合配置
+      operationId: updateFactorConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFactorConfigRequest'
+            example:
+              config_id: "fc_20240107_001"
+              description: "平安银行优化多因子组合策略"
+              technical_factors: ["ma_5", "ma_20", "rsi_14"]
+              fundamental_factors: ["roe", "roa"]
+              sentiment_factors: ["news_sentiment"]
+              factor_weights:
+                ma_5: 0.20
+                ma_20: 0.20
+                rsi_14: 0.15
+                roe: 0.25
+                roa: 0.15
+                news_sentiment: 0.05
+      responses:
+        '200':
+          description: 配置更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorConfigResponse'
+        '404':
+          description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/factor-config/delete:
+    post:
+      tags:
+        - Factor Configuration
+      summary: 删除因子组合配置
+      description: 删除指定的因子组合配置
+      operationId: deleteFactorConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteFactorConfigRequest'
+            example:
+              config_id: "fc_20240107_001"
+      responses:
+        '200':
+          description: 配置删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteFactorConfigResponse'
+              example:
+                code: 200
+                message: "配置删除成功"
+                data:
+                  config_id: "fc_20240107_001"
+                  deleted: true
+        '404':
+          description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/factor-config/list:
+    post:
+      tags:
+        - Factor Configuration
+      summary: 获取配置列表
+      description: 分页获取因子组合配置列表
+      operationId: listFactorConfigs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListFactorConfigRequest'
+            example:
+              page: 1
+              page_size: 10
+      responses:
+        '200':
+          description: 获取配置列表成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFactorConfigResponse'
+
+  # 回测任务管理接口
+  /api/v1/backtest/createTask:
+    post:
+      tags:
+        - Backtest Task
+      summary: 创建回测任务
+      description: 创建新的回测任务，可以指定批次ID进行批量处理
+      operationId: createBacktestTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBacktestTaskRequest'
+            example:
+              task_name: "平安银行因子回测"
+              stock_code: "000001.SZ"
+              start_date: "2020-01-01"
+              end_date: "2023-12-31"
+              initial_capital: 1000000.0
+              factor_combination_id: "fc_20240107_001"
+              config:
+                transaction_cost: 0.001
+                slippage: 0.0001
+      responses:
+        '200':
+          description: 任务创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateBacktestTaskResponse'
+              example:
+                task_id: "bt_20240107_001"
+                batch_id: "batch_20240107_001"
+                status: "pending"
+                message: "任务创建成功"
+        '400':
+          description: 参数验证失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "参数验证失败: 开始日期不能晚于结束日期，初始资金必须大于0"
+
+  /api/v1/backtest/getTaskStatus:
+    get:
+      tags:
+        - Backtest Task
+      summary: 查询任务状态
+      description: 根据任务ID查询回测任务的执行状态
+      operationId: getBacktestTaskStatus
+      parameters:
+        - name: task_id
+          in: query
+          required: true
+          description: 回测任务ID
+          schema:
+            type: string
+          example: "bt_20240107_001"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestTaskStatusResponse'
+              example:
+                task_id: "bt_20240107_001"
+                task_name: "平安银行因子回测"
+                status: "completed"
+                batch_id: "batch_20240107_001"
+                stock_code: "000001.SZ"
+                created_at: "2024-01-07T10:00:00Z"
+                started_at: "2024-01-07T10:01:00Z"
+                completed_at: "2024-01-07T10:15:00Z"
+                error_message: null
+                backtest_result_id: "br_20240107_001"
+        '404':
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "任务不存在: bt_20240107_001"
+
+  /api/v1/backtest/getTasksByBatch:
+    get:
+      tags:
+        - Backtest Task
+      summary: 按批次查询任务
+      description: 根据批次ID查询该批次下的所有回测任务
+      operationId: getBacktestTasksByBatch
+      parameters:
+        - name: batch_id
+          in: query
+          required: true
+          description: 批次ID
+          schema:
+            type: string
+          example: "batch_20240107_002"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestTaskBatchResponse'
+
+  /api/v1/backtest/getTaskResult:
+    get:
+      tags:
+        - Backtest Task
+      summary: 获取任务结果
+      description: 根据任务ID获取回测任务的执行结果
+      operationId: getBacktestTaskResult
+      parameters:
+        - name: task_id
+          in: query
+          required: true
+          description: 回测任务ID
+          schema:
+            type: string
+          example: "bt_20240107_001"
+      responses:
+        '200':
+          description: 获取结果成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestTaskResultResponse'
+              example:
+                task_id: "bt_20240107_001"
+                task_name: "平安银行因子回测"
+                status: "completed"
+                backtest_result_id: "br_20240107_001"
+                created_at: "2024-01-07T10:00:00Z"
+                started_at: "2024-01-07T10:01:00Z"
+                completed_at: "2024-01-07T10:15:00Z"
+                duration: 840.5
+                error_message: null
+
+  /api/v1/backtest/cancelTask:
+    post:
+      tags:
+        - Backtest Task
+      summary: 取消任务
+      description: 取消正在执行或等待执行的回测任务
+      operationId: cancelBacktestTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelBacktestTaskRequest'
+            example:
+              task_id: "bt_20240107_003"
+      responses:
+        '200':
+          description: 取消操作响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelBacktestTaskResponse'
+              examples:
+                success:
+                  summary: 取消成功
+                  value:
+                    task_id: "bt_20240107_003"
+                    success: true
+                    message: "任务取消成功"
+                failed:
+                  summary: 取消失败
+                  value:
+                    task_id: "bt_20240107_001"
+                    success: false
+                    message: "任务已完成，无法取消"
+
+components:
+  schemas:
+    # 健康检查相关
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 系统状态
+          example: "ok"
+        service:
+          type: string
+          description: 服务名称
+          example: "quant-engine"
+        version:
+          type: string
+          description: 服务版本
+          example: "0.1.0"
+        health:
+          type: object
+          properties:
+            overall:
+              type: boolean
+              description: 整体健康状态
+            mysql:
+              $ref: '#/components/schemas/DatabaseHealth'
+            redis:
+              $ref: '#/components/schemas/DatabaseHealth'
+      required:
+        - status
+        - service
+        - version
+        - health
+
+    DatabaseHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 数据库状态
+          example: "ok"
+        response_time:
+          type: number
+          format: float
+          description: 响应时间（毫秒）
+          example: 5.2
+      required:
+        - status
+        - response_time
+
+    VersionResponse:
+      type: object
+      properties:
+        service:
+          type: string
+          description: 服务名称
+          example: "quant-engine"
+        version:
+          type: string
+          description: 服务版本
+          example: "0.1.0"
+        api_version:
+          type: string
+          description: API版本
+          example: "v1"
+        build_time:
+          type: string
+          format: date-time
+          description: 构建时间
+          example: "2024-01-07T08:00:00Z"
+        git_commit:
+          type: string
+          description: Git提交哈希
+          example: "abc123def456"
+      required:
+        - service
+        - version
+        - api_version
+        - build_time
+        - git_commit
+
+    # 因子配置相关
+    CreateFactorConfigRequest:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          description: 股票代码
+          pattern: '^\d{6}\.(SZ|SH)$'
+          example: "000001.SZ"
+        description:
+          type: string
+          description: 配置描述
+          maxLength: 500
+          example: "平安银行多因子组合策略"
+        technical_factors:
+          type: array
+          items:
+            type: string
+          description: 技术因子列表
+          example: ["ma_5", "ma_20", "rsi_14", "macd"]
+        fundamental_factors:
+          type: array
+          items:
+            type: string
+          description: 基本面因子列表
+          example: ["roe", "roa", "debt_ratio"]
+        sentiment_factors:
+          type: array
+          items:
+            type: string
+          description: 情绪因子列表
+          example: ["news_sentiment"]
+        factor_weights:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 1
+          description: 因子权重映射，所有权重之和必须等于1.0
+          example:
+            ma_5: 0.15
+            ma_20: 0.15
+            rsi_14: 0.10
+            macd: 0.10
+            roe: 0.20
+            roa: 0.15
+            debt_ratio: 0.10
+            news_sentiment: 0.05
+      required:
+        - stock_code
+        - description
+        - technical_factors
+        - fundamental_factors
+        - sentiment_factors
+        - factor_weights
+
+    GetFactorConfigRequest:
+      type: object
+      properties:
+        config_id:
+          type: string
+          description: 配置ID
+          example: "fc_20240107_001"
+      required:
+        - config_id
+
+    GetFactorConfigByStockRequest:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          description: 股票代码
+          pattern: '^\d{6}\.(SZ|SH)$'
+          example: "000001.SZ"
+      required:
+        - stock_code
+
+    UpdateFactorConfigRequest:
+      type: object
+      properties:
+        config_id:
+          type: string
+          description: 配置ID
+          example: "fc_20240107_001"
+        description:
+          type: string
+          description: 配置描述
+          maxLength: 500
+          example: "平安银行优化多因子组合策略"
+        technical_factors:
+          type: array
+          items:
+            type: string
+          description: 技术因子列表
+          example: ["ma_5", "ma_20", "rsi_14"]
+        fundamental_factors:
+          type: array
+          items:
+            type: string
+          description: 基本面因子列表
+          example: ["roe", "roa"]
+        sentiment_factors:
+          type: array
+          items:
+            type: string
+          description: 情绪因子列表
+          example: ["news_sentiment"]
+        factor_weights:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 1
+          description: 因子权重映射，所有权重之和必须等于1.0
+          example:
+            ma_5: 0.20
+            ma_20: 0.20
+            rsi_14: 0.15
+            roe: 0.25
+            roa: 0.15
+            news_sentiment: 0.05
+      required:
+        - config_id
+
+    DeleteFactorConfigRequest:
+      type: object
+      properties:
+        config_id:
+          type: string
+          description: 配置ID
+          example: "fc_20240107_001"
+      required:
+        - config_id
+
+    ListFactorConfigRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: 页码
+          example: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: 每页大小
+          example: 10
+      required:
+        - page
+        - page_size
+
+    FactorConfig:
+      type: object
+      properties:
+        config_id:
+          type: string
+          description: 配置ID
+          example: "fc_20240107_001"
+        stock_code:
+          type: string
+          description: 股票代码
+          example: "000001.SZ"
+        description:
+          type: string
+          description: 配置描述
+          example: "平安银行多因子组合策略"
+        technical_factors:
+          type: array
+          items:
+            type: string
+          description: 技术因子列表
+          example: ["ma_5", "ma_20", "rsi_14", "macd"]
+        fundamental_factors:
+          type: array
+          items:
+            type: string
+          description: 基本面因子列表
+          example: ["roe", "roa", "debt_ratio"]
+        sentiment_factors:
+          type: array
+          items:
+            type: string
+          description: 情绪因子列表
+          example: ["news_sentiment"]
+        factor_weights:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+          description: 因子权重映射
+          example:
+            ma_5: 0.15
+            ma_20: 0.15
+            rsi_14: 0.10
+            macd: 0.10
+            roe: 0.20
+            roa: 0.15
+            debt_ratio: 0.10
+            news_sentiment: 0.05
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+          example: "2024-01-07T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+          example: "2024-01-07T10:00:00Z"
+      required:
+        - config_id
+        - stock_code
+        - description
+        - technical_factors
+        - fundamental_factors
+        - sentiment_factors
+        - factor_weights
+        - created_at
+        - updated_at
+
+    FactorConfigResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 响应状态码
+          example: 200
+        message:
+          type: string
+          description: 响应消息
+          example: "配置创建成功"
+        data:
+          $ref: '#/components/schemas/FactorConfig'
+      required:
+        - code
+        - message
+        - data
+
+    FactorConfigListResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 响应状态码
+          example: 200
+        message:
+          type: string
+          description: 响应消息
+          example: "获取配置成功"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FactorConfig'
+      required:
+        - code
+        - message
+        - data
+
+    DeleteFactorConfigResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 响应状态码
+          example: 200
+        message:
+          type: string
+          description: 响应消息
+          example: "配置删除成功"
+        data:
+          type: object
+          properties:
+            config_id:
+              type: string
+              description: 配置ID
+              example: "fc_20240107_001"
+            deleted:
+              type: boolean
+              description: 是否删除成功
+              example: true
+          required:
+            - config_id
+            - deleted
+      required:
+        - code
+        - message
+        - data
+
+    PaginatedFactorConfigResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 响应状态码
+          example: 200
+        message:
+          type: string
+          description: 响应消息
+          example: "获取配置列表成功"
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/FactorConfig'
+            total:
+              type: integer
+              description: 总记录数
+              example: 1
+            page:
+              type: integer
+              description: 当前页码
+              example: 1
+            page_size:
+              type: integer
+              description: 每页大小
+              example: 10
+            total_pages:
+              type: integer
+              description: 总页数
+              example: 1
+          required:
+            - items
+            - total
+            - page
+            - page_size
+            - total_pages
+      required:
+        - code
+        - message
+        - data
+
+    # 回测任务相关
+    CreateBacktestTaskRequest:
+      type: object
+      properties:
+        task_name:
+          type: string
+          description: 任务名称
+          maxLength: 200
+          example: "平安银行因子回测"
+        stock_code:
+          type: string
+          description: 股票代码
+          pattern: '^\d{6}\.(SZ|SH)$'
+          example: "000001.SZ"
+        start_date:
+          type: string
+          format: date
+          description: 回测开始日期
+          example: "2020-01-01"
+        end_date:
+          type: string
+          format: date
+          description: 回测结束日期
+          example: "2023-12-31"
+        initial_capital:
+          type: number
+          format: float
+          minimum: 1000
+          description: 初始资金
+          example: 1000000.0
+        factor_combination_id:
+          type: string
+          description: 因子组合配置ID
+          example: "fc_20240107_001"
+        batch_id:
+          type: string
+          description: 批次ID（可选，用于批量任务）
+          example: "batch_20240107_001"
+        config:
+          type: object
+          description: 回测配置参数
+          properties:
+            transaction_cost:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 0.1
+              description: 交易成本
+              example: 0.001
+            slippage:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 0.01
+              description: 滑点
+              example: 0.0001
+      required:
+        - task_name
+        - stock_code
+        - start_date
+        - end_date
+        - initial_capital
+
+    CreateBacktestTaskResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+          description: 任务ID
+          example: "bt_20240107_001"
+        batch_id:
+          type: string
+          description: 批次ID
+          example: "batch_20240107_001"
+        status:
+          type: string
+          enum: ["pending", "running", "completed", "failed", "cancelled"]
+          description: 任务状态
+          example: "pending"
+        message:
+          type: string
+          description: 响应消息
+          example: "任务创建成功"
+      required:
+        - task_id
+        - batch_id
+        - status
+        - message
+
+    BacktestTaskStatusResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+          description: 任务ID
+          example: "bt_20240107_001"
+        task_name:
+          type: string
+          description: 任务名称
+          example: "平安银行因子回测"
+        status:
+          type: string
+          enum: ["pending", "running", "completed", "failed", "cancelled"]
+          description: 任务状态
+          example: "completed"
+        batch_id:
+          type: string
+          description: 批次ID
+          example: "batch_20240107_001"
+        stock_code:
+          type: string
+          description: 股票代码
+          example: "000001.SZ"
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+          example: "2024-01-07T10:00:00Z"
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 开始时间
+          example: "2024-01-07T10:01:00Z"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 完成时间
+          example: "2024-01-07T10:15:00Z"
+        error_message:
+          type: string
+          nullable: true
+          description: 错误信息
+          example: null
+        backtest_result_id:
+          type: string
+          nullable: true
+          description: 回测结果ID
+          example: "br_20240107_001"
+      required:
+        - task_id
+        - task_name
+        - status
+        - batch_id
+        - stock_code
+        - created_at
+
+    BacktestTaskBatchResponse:
+      type: object
+      properties:
+        batch_id:
+          type: string
+          description: 批次ID
+          example: "batch_20240107_002"
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/BacktestTaskStatusResponse'
+        total_count:
+          type: integer
+          description: 任务总数
+          example: 2
+      required:
+        - batch_id
+        - tasks
+        - total_count
+
+    BacktestTaskResultResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+          description: 任务ID
+          example: "bt_20240107_001"
+        task_name:
+          type: string
+          description: 任务名称
+          example: "平安银行因子回测"
+        status:
+          type: string
+          enum: ["pending", "running", "completed", "failed", "cancelled"]
+          description: 任务状态
+          example: "completed"
+        backtest_result_id:
+          type: string
+          nullable: true
+          description: 回测结果ID
+          example: "br_20240107_001"
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+          example: "2024-01-07T10:00:00Z"
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 开始时间
+          example: "2024-01-07T10:01:00Z"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 完成时间
+          example: "2024-01-07T10:15:00Z"
+        duration:
+          type: number
+          format: float
+          nullable: true
+          description: 执行时长（秒）
+          example: 840.5
+        error_message:
+          type: string
+          nullable: true
+          description: 错误信息
+          example: null
+      required:
+        - task_id
+        - task_name
+        - status
+        - created_at
+
+    CancelBacktestTaskRequest:
+      type: object
+      properties:
+        task_id:
+          type: string
+          description: 任务ID
+          example: "bt_20240107_003"
+      required:
+        - task_id
+
+    CancelBacktestTaskResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+          description: 任务ID
+          example: "bt_20240107_003"
+        success:
+          type: boolean
+          description: 是否取消成功
+          example: true
+        message:
+          type: string
+          description: 响应消息
+          example: "任务取消成功"
+      required:
+        - task_id
+        - success
+        - message
+
+    # 通用错误响应
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: 错误详情
+          example: "参数验证失败"
+        code:
+          type: integer
+          description: 错误代码
+          example: 400
+        timestamp:
+          type: string
+          format: date-time
+          description: 错误时间
+          example: "2024-01-07T10:00:00Z"
+      required:
+        - detail
+
+tags:
+  - name: Health Check
+    description: 系统健康检查相关接口
+  - name: Factor Configuration
+    description: 因子组合配置管理接口
+  - name: Backtest Task
+    description: 回测任务管理接口
+
+externalDocs:
+  description: 项目文档
+  url: https://github.com/qtrade/quant-engine/docs

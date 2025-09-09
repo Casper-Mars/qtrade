@@ -4,15 +4,14 @@
 """
 
 import asyncio
-import logging
 from typing import Any
+
+from loguru import logger
 
 from ..dao.task_dao import TaskDAO
 from ..models.task_models import TaskInfo, TaskStatus
 from .backtest_engine import BacktestEngine
 from .factor_combination_manager import FactorCombinationManager
-
-logger = logging.getLogger(__name__)
 
 
 class TaskScheduler:
@@ -92,9 +91,26 @@ class TaskScheduler:
             logger.warning("任务调度器已在运行中")
             return
 
-        self._is_running = True
-        self._scheduler_task = asyncio.create_task(self._scheduler_loop())
-        logger.info("任务调度器已启动")
+        try:
+            self._is_running = True
+            logger.info("正在创建调度器主循环任务...")
+            self._scheduler_task = asyncio.create_task(self._scheduler_loop())
+            logger.info("任务调度器已启动")
+            
+            # 等待一小段时间确保调度器主循环启动
+            await asyncio.sleep(0.1)
+            
+            # 检查任务是否正常运行
+            if self._scheduler_task.done():
+                exception = self._scheduler_task.exception()
+                if exception:
+                    logger.error(f"调度器主循环启动失败: {exception}")
+                    raise exception
+                    
+        except Exception as e:
+            logger.error(f"启动任务调度器失败: {e}")
+            self._is_running = False
+            raise
 
     async def stop(self) -> None:
         """停止任务调度器"""
@@ -138,7 +154,11 @@ class TaskScheduler:
 
         每30秒检查一次数据库中的pending任务，逐个处理
         """
-        logger.info("调度器主循环已启动")
+        try:
+            logger.info("调度器主循环已启动")
+        except Exception as e:
+            logger.error(f"调度器主循环启动时出错: {e}")
+            return
 
         while self._is_running:
             try:

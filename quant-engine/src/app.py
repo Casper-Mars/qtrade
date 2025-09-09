@@ -21,9 +21,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 启动时执行
     logger.info(f"启动 {settings.app_name} v{settings.app_version}")
 
+    # 任务调度器实例
+    task_scheduler = None
+
     try:
         # 初始化连接池
         await connection_pool_manager.initialize()
+
+        # 启动任务调度器
+        from .backtest_engine.services.task_scheduler import TaskScheduler
+        logger.info("正在初始化任务调度器...")
+        task_scheduler = TaskScheduler()
+        logger.info("任务调度器实例创建完成，正在启动...")
+        await task_scheduler.start()
+        logger.info("任务调度器已启动")
+
         logger.info("应用启动完成")
 
         yield
@@ -34,6 +46,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     finally:
         # 关闭时执行
         logger.info("正在关闭应用...")
+
+        # 停止任务调度器
+        if task_scheduler:
+            await task_scheduler.stop()
+            logger.info("任务调度器已停止")
+
         await connection_pool_manager.cleanup()
         logger.info("应用已关闭")
 

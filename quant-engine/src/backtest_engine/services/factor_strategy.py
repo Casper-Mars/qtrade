@@ -7,13 +7,11 @@
 - 交易执行逻辑
 """
 
-import logging
+from loguru import logger
 
 import backtrader as bt  # type: ignore
 
 from ..models.backtest_models import BacktestFactorConfig, BacktestMode
-
-logger = logging.getLogger(__name__)
 
 
 class FactorStrategy(bt.Strategy):

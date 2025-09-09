@@ -9,7 +9,7 @@
 - 按股票代码查询配置
 """
 
-import logging
+from loguru import logger
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -25,8 +25,6 @@ from ...models.factor_combination import (
     FactorConfigGetRequest,
 )
 from ...services.factor_combination_manager import FactorCombinationManager
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/factor-config", tags=["factor-config"])
 

@@ -3,7 +3,7 @@
 本模块实现了任务管理的核心功能，包括任务创建、状态查询、任务取消等操作。
 """
 
-import logging
+from loguru import logger
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -11,8 +11,6 @@ from uuid import uuid4
 from ...utils.exceptions import DataNotFoundError, ValidationException
 from ..dao.task_dao import TaskDAO
 from ..models.task_models import TaskInfo, TaskRequest, TaskStatus
-
-logger = logging.getLogger(__name__)
 
 
 class TaskManager:

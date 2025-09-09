@@ -7,7 +7,7 @@
 - 数据预处理和格式化
 """
 
-import logging
+from loguru import logger
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -17,8 +17,6 @@ import pandas as pd
 from ...clients.tushare_client import TushareClient
 from ...factor_engine.services.factor_service import FactorService
 from ..models.backtest_models import BacktestFactorConfig
-
-logger = logging.getLogger(__name__)
 
 
 class FactorDataFeed(bt.feeds.PandasData):

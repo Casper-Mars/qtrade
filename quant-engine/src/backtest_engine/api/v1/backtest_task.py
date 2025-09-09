@@ -6,11 +6,11 @@ from fastapi import APIRouter, HTTPException, Query
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from ....backtest_engine.models.task_models import TaskRequest, TaskStatus
-from ....backtest_engine.services.task_manager import TaskManager
+from ...models.task_models import TaskRequest, TaskStatus
+from ...services.task_manager import TaskManager
 from ....utils.exceptions import DataNotFoundError, ValidationException
 
-router = APIRouter()
+router = APIRouter(prefix="/backtest-task", tags=["backtest-task"])
 
 
 class TaskCreateRequest(BaseModel):

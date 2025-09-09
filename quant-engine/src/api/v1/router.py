@@ -3,9 +3,9 @@
 from fastapi import APIRouter
 from loguru import logger
 
-from ...backtest_engine.api.v1 import factor_config
+from ...backtest_engine.api.v1 import factor_config, backtest_task
 from ...factor_engine.api.v1 import fundamental, market, sentiment, technical
-from .endpoints import backtest_task, health, system
+from .endpoints import health, system
 
 # 创建API v1路由器
 api_v1_router = APIRouter()
@@ -34,7 +34,7 @@ api_v1_router.include_router(
 )
 
 api_v1_router.include_router(
-    backtest_task.router, prefix="/backtest", tags=["回测任务管理"]
+    backtest_task.router, tags=["回测任务管理"]
 )
 
 logger.info("API v1路由注册完成")

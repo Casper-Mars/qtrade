@@ -9,8 +9,12 @@
 """
 
 from . import base, cache
+from .backtest_dao import BacktestDAO
+from .factor_combination_dao import FactorCombinationDAO
 
 __all__ = [
     "base",
     "cache",
+    "BacktestDAO",
+    "FactorCombinationDAO",
 ]

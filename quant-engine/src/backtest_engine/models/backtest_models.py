@@ -13,7 +13,7 @@ from decimal import Decimal
 from enum import Enum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, field_validator, model_validator, ValidationInfo
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 
 class BacktestMode(str, Enum):

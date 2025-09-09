@@ -1378,14 +1378,12 @@ sequenceDiagram
     Note over Client, Cache: 批次创建阶段
     Client->>TaskMgr: create_batch(stock_pool, config)
     TaskMgr->>TaskMgr: 生成批次ID
-    TaskMgr->>DB: 保存批次信息到backtest_batches表
     
     loop 为每个股票创建任务
         TaskMgr->>TaskMgr: 生成任务ID
         TaskMgr->>DB: 保存任务信息到backtest_tasks表(关联batch_id)
     end
     
-    TaskMgr->>DB: 更新批次总任务数
     TaskMgr-->>Client: 返回批次ID和任务ID列表
 
     Note over Client, Cache: 定时调度执行阶段
@@ -1408,9 +1406,8 @@ sequenceDiagram
             BacktestEngine->>Cache: 缓存回测结果
             BacktestEngine->>DB: 更新任务状态为completed
             
-            TaskMgr->>DB: 更新批次完成任务数
             alt 批次所有任务完成
-                TaskMgr->>DB: 更新批次状态为completed
+                TaskMgr->>TaskMgr: 标记批次完成（通过任务状态统计）
             end
         end
     end
@@ -1430,7 +1427,6 @@ sequenceDiagram
     Note over Client, Cache: 异常处理
     alt 任务执行失败
         BacktestEngine->>DB: 更新任务状态为failed
-        TaskMgr->>DB: 更新批次失败任务数
         TaskMgr->>Cache: 清理相关缓存
     end
 
@@ -1449,33 +1445,7 @@ sequenceDiagram
 
 ### 3.2 MySQL表结构设计
 
-#### 3.2.1 回测批次表
-
-```sql
-CREATE TABLE backtest_batches (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-    batch_id VARCHAR(64) NOT NULL UNIQUE COMMENT '批次唯一标识',
-    batch_name VARCHAR(200) NOT NULL COMMENT '批次名称',
-    description TEXT COMMENT '批次描述',
-    stock_pool JSON NOT NULL COMMENT '股票池',
-    total_tasks INT NOT NULL DEFAULT 0 COMMENT '总任务数',
-    completed_tasks INT NOT NULL DEFAULT 0 COMMENT '已完成任务数',
-    failed_tasks INT NOT NULL DEFAULT 0 COMMENT '失败任务数',
-    config JSON NOT NULL COMMENT '批次配置',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '批次状态：pending, running, completed, failed, cancelled',
-    error_message TEXT COMMENT '错误信息',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    started_at DATETIME COMMENT '开始时间',
-    completed_at DATETIME COMMENT '完成时间',
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    
-    INDEX idx_batch_id (batch_id),
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at)
-) COMMENT='回测批次表';
-```
-
-#### 3.2.2 回测任务表
+#### 3.2.1 回测任务表
 
 ```sql
 CREATE TABLE backtest_tasks (
@@ -1508,7 +1478,7 @@ CREATE TABLE backtest_tasks (
 ) COMMENT='回测任务表';
 ```
 
-#### 3.2.3 因子组合配置表
+#### 3.2.2 因子组合配置表
 
 ```sql
 CREATE TABLE factor_configurations (
@@ -1529,7 +1499,7 @@ CREATE TABLE factor_configurations (
 ) COMMENT='因子组合配置表';
 ```
 
-#### 3.2.4 回测结果表
+#### 3.2.3 回测结果表
 
 ```sql
 CREATE TABLE backtest_results (
@@ -1644,6 +1614,7 @@ CREATE TABLE backtest_results (
 [2025-01-07 17:45] [新增] 为任务管理模块添加HTTP API接口设计，包含创建任务、查询任务状态、查询任务列表、取消任务、获取任务结果等CRUD操作的REST API
 [2025-01-07 17:50] [修改] 将HTTP API设计从RESTful风格改为RPC风格，所有接口统一使用POST方法，采用action-based的URL设计
 [2025-01-07 17:55] [重构] 修改回测任务设计支持批次管理：一个批次包含多个任务，每个任务只支持单个股票；新增批次表和相关API接口
+[2025-01-08 10:30] [简化] 移除backtest_batches批次表，改为仅使用backtest_tasks表的batch_id字段进行批次管理，简化数据库设计并减少数据冗余
 [2025-01-07 18:00] [修改] 将任务调度机制从队列改为定时器轮询，更新时序图体现批次创建多任务逻辑，移除队列缓存改为定时器锁
 [2024-01-28 16:00] [重构] 同步PRD文档修改：删除优化引擎模块，新增因子组合管理模块；更新架构图、核心模块概述、技术栈选型、数据流概览；修改任务管理API接口，删除优化相关配置参数；新增因子组合管理HTTP API接口设计
 [2024-01-28 16:30] [修复] 因子组合管理模块设计缺陷修复：1)在FactorConfig数据模型中添加stock_code字段，支持为指定股票配置因子组合；2)更新所有HTTP API接口示例，添加股票代码参数；3)新增按股票代码查询配置的API接口；4)新增因子组合配置表的数据库设计，支持用户为不同股票配置不同的因子组合和权重

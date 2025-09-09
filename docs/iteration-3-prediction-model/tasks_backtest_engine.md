@@ -277,8 +277,7 @@
     * 支持Backtrader结果格式的存储
   - 创建数据库表结构（参考design_backend.md第3.2节）
     * 创建backtest_results表存储回测结果
-    * 创建backtest_tasks表存储任务信息
-    * 创建backtest_batches表支持批次管理
+    * 创建backtest_tasks表存储任务信息（包含batch_id字段支持批次管理）
     * 添加必要的索引和约束
     * 实现数据库迁移脚本
   - 实现数据模型映射
@@ -290,52 +289,59 @@
   - _前置条件：任务M001完成_
   - _集成测试点：数据库操作测试、查询功能测试、数据一致性测试_
 
-### 模块C：API接口层
+### 模块C：系统集成层
 
-#### 功能点C1：回测API接口实现
-- [ ] 任务M007. 实现回测API接口（完整端到端实现）
+#### 功能点C1：回测引擎与数据访问层集成
+- [ ] 任务M007. 实现BacktestEngine与BacktestDAO集成（完整端到端实现）
   - **时序图描述**：
     ```mermaid
     sequenceDiagram
-        participant Client as 客户端
-        participant API as BacktestAPI
+        participant API as 回测API
         participant BE as BacktestEngine
         participant DAO as BacktestDAO
+        participant Cerebro as bt.Cerebro
+        participant DB as MySQL数据库
         
-        Client->>API: POST /api/v1/backtest/run
-        API->>API: 参数验证
-        API->>BE: 执行回测
-        BE->>DAO: 保存结果
-        DAO-->>BE: 保存确认
-        BE-->>API: 返回回测结果
-        API-->>Client: 返回API响应
+        API->>BE: run_backtest(config)
+        BE->>BE: 验证回测配置
+        BE->>Cerebro: 执行回测流程
         
-        Client->>API: POST /api/v1/backtest/getResults
-        API->>DAO: 查询结果
-        DAO-->>API: 返回结果数据
-        API-->>Client: 返回查询结果
+        Note over Cerebro: Backtrader执行回测
+        
+        Cerebro-->>BE: 返回回测结果
+        BE->>BE: 格式化结果为BacktestResult
+        BE->>DAO: save_backtest_result(result)
+        DAO->>DB: 插入回测结果
+        DB-->>DAO: 返回保存确认
+        DAO-->>BE: 返回保存状态
+        BE-->>API: 返回完整结果（含数据库ID）
     ```
-  - 实现回测执行API（参考design_backend.md第2.3节）
-    * 实现POST /api/v1/backtest/run接口
-    * 添加请求参数验证和错误处理
-    * 支持同步和异步回测执行
-    * 集成BacktestEngine核心功能
-  - 实现回测结果查询API（参考design_backend.md第2.3节）
-    * 实现POST /api/v1/backtest/getResults接口
-    * 支持基本查询和结果返回
-    * 实现分页和过滤功能
-  - 实现批次管理API（参考design_backend.md第2.3节）
-    * 实现POST /api/v1/backtest/createBatch接口
-    * 实现POST /api/v1/backtest/getBatchStatus接口
-    * 支持批量回测任务管理
-  - 实现API文档和验证
-    * 使用FastAPI自动生成API文档
-    * 实现请求参数验证和响应格式标准化
-    * 添加错误处理和异常响应
-  - _Requirements: API接口、参数验证、错误处理、批次管理_
-  - _Design Reference: design_backend.md 第2.3节_
+  - 修改BacktestEngine.run_backtest()方法集成数据持久化
+    * 在回测完成后自动保存结果到数据库
+    * 实现结果保存失败的异常处理和重试机制
+    * 添加保存状态的日志记录和监控
+    * 返回包含数据库记录ID的完整结果
+  - 实现BacktestEngine.get_backtest_history()方法
+    * 通过BacktestDAO查询历史回测结果
+    * 支持按时间范围、股票代码、因子组合等条件筛选
+    * 实现分页查询和结果排序
+    * 添加查询缓存和性能优化
+  - 实现BacktestEngine.compare_backtest_results()方法
+    * 支持多个回测结果的对比分析
+    * 生成对比报告和可视化图表
+    * 实现绩效指标的差异分析
+  - 实现事务管理和数据一致性
+    * 确保回测执行和结果保存的原子性
+    * 实现回测失败时的数据清理机制
+    * 添加数据完整性验证
+  - 实现配置管理集成
+    * 将回测配置同步保存到数据库
+    * 支持配置的版本管理和历史追踪
+    * 实现配置模板的保存和复用
+  - _Requirements: 数据持久化集成、历史查询、结果对比、事务管理_
+  - _Design Reference: design_backend.md 第2.1.3节、第3.2节_
   - _前置条件：任务M005、M006完成_
-  - _集成测试点：API接口测试、参数验证测试、错误处理测试_
+  - _集成测试点：端到端数据流测试、事务一致性测试、异常恢复测试、性能压力测试_
 
 ## 任务执行顺序说明
 
@@ -348,9 +354,11 @@
 - 任务M004：PerformanceAnalyzer分析器（依赖M001、M002、M003）
 - 任务M006：数据访问层（依赖M001，可与M002-M004并行）
 
-**第三阶段：集成和接口（最后执行）**
+**第三阶段：核心引擎实现（集成各组件）**
 - 任务M005：BacktestEngine核心（依赖M001-M004）
-- 任务M007：API接口（依赖M005、M006）
+
+**第四阶段：系统集成（最后执行）**
+- 任务M007：BacktestEngine与BacktestDAO集成（依赖M005、M006）
 
 ## 基于Backtrader的技术要点
 

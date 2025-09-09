@@ -1,18 +1,18 @@
 """回测引擎数据模型模块"""
 
 from .backtest_models import (
-    Factor,
-    FactorItem,
-    FactorCombination,
-    BacktestFactorConfig,
     BacktestConfig,
+    BacktestFactorConfig,
+    BacktestMode,
     BacktestResult,
-    BacktestRunRequest,
-    BacktestRunResponse,
     BacktestResultsRequest,
     BacktestResultsResponse,
+    BacktestRunRequest,
+    BacktestRunResponse,
+    Factor,
+    FactorCombination,
+    FactorItem,
     TradingSignal,
-    BacktestMode
 )
 
 __all__ = [

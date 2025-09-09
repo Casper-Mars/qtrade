@@ -5,11 +5,12 @@
 - FactorCombinationManager 因子组合管理器测试
 """
 
-import pytest
 from datetime import datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
+
+import pytest
 
 from src.backtest_engine.models.factor_combination import (
     FactorCombination,
@@ -557,7 +558,7 @@ class TestFactorCombinationManager:
             parameters={},
             is_active=True
         )
-        
+
         existing_combination = FactorCombination(
             id=uuid4(),
             name="000001",
@@ -634,7 +635,7 @@ class TestFactorCombinationManager:
             parameters={},
             is_active=True
         )
-        
+
         existing_combination = FactorCombination(
             id=uuid4(),
             name="000001",
@@ -708,7 +709,7 @@ class TestFactorCombinationManager:
             parameters={},
             is_active=True
         )
-        
+
         combination = FactorCombination(
             id=uuid4(),
             name="test_combination",

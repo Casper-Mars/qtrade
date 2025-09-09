@@ -9,7 +9,7 @@
 
 import logging
 
-import backtrader as bt
+import backtrader as bt  # type: ignore
 
 from ..models.backtest_models import BacktestFactorConfig, BacktestMode
 
@@ -33,15 +33,15 @@ class FactorStrategy(bt.Strategy):
         ('take_profit', None),         # 止盈比例
     )
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化策略"""
         super().__init__()
 
         # 验证参数
-        if not self.params.factor_combination:
+        if not self.p.factor_combination:
             raise ValueError("因子组合配置不能为空")
 
-        self.factor_combination: BacktestFactorConfig = self.params.factor_combination
+        self.factor_combination: BacktestFactorConfig = self.p.factor_combination
 
         # 策略状态
         self.current_position = 0  # 当前仓位
@@ -56,9 +56,9 @@ class FactorStrategy(bt.Strategy):
 
 
         logger.info(f"因子策略初始化完成，因子数量: {len(self.factor_weights)}")
-        logger.info(f"买入阈值: {self.params.buy_threshold}, 卖出阈值: {self.params.sell_threshold}")
+        logger.info(f"买入阈值: {self.p.buy_threshold}, 卖出阈值: {self.p.sell_threshold}")
 
-    def next(self):
+    def next(self) -> None:
         """策略主逻辑，每个数据点调用一次"""
         try:
             # 1. 计算综合因子信号
@@ -115,7 +115,7 @@ class FactorStrategy(bt.Strategy):
 
         return composite_signal
 
-    def _normalize_factor_value(self, value: float, factor_name: str) -> float:
+    def _normalize_factor_value(self, value: float | None, factor_name: str) -> float:
         """标准化因子值到0-1区间
 
         Args:
@@ -127,15 +127,15 @@ class FactorStrategy(bt.Strategy):
         """
         # 简单的标准化方法，可以根据具体因子类型优化
         if value is None or not isinstance(value, int | float):
-            return 0.5
-
-        # 使用sigmoid函数进行标准化
-        import math
-        try:
-            normalized = 1 / (1 + math.exp(-value))
-            return normalized
-        except (OverflowError, ValueError):
-            return 0.5
+            normalized = 0.5
+        else:
+            # 使用sigmoid函数进行标准化
+            import math
+            try:
+                normalized = 1 / (1 + math.exp(-value))
+            except (OverflowError, ValueError):
+                normalized = 0.5
+        return normalized
 
     def _generate_trade_signal(self, composite_signal: float) -> str:
         """生成交易信号
@@ -146,14 +146,14 @@ class FactorStrategy(bt.Strategy):
         Returns:
             交易信号: 'BUY', 'SELL', 'HOLD'
         """
-        if composite_signal >= self.params.buy_threshold:
+        if composite_signal >= self.p.buy_threshold:
             return 'BUY'
-        elif composite_signal <= self.params.sell_threshold:
+        elif composite_signal <= self.p.sell_threshold:
             return 'SELL'
         else:
             return 'HOLD'
 
-    def _execute_trade_decision(self, trade_signal: str, composite_signal: float):
+    def _execute_trade_decision(self, trade_signal: str, composite_signal: float) -> None:
         """执行交易决策
 
         Args:
@@ -174,7 +174,7 @@ class FactorStrategy(bt.Strategy):
         if current_position != 0:
             self._check_stop_conditions()
 
-    def _execute_buy_order(self, signal_strength: float):
+    def _execute_buy_order(self, signal_strength: float) -> None:
         """执行买入订单
 
         Args:
@@ -185,7 +185,7 @@ class FactorStrategy(bt.Strategy):
         price = self.data.close[0]
 
         # 根据信号强度调整仓位大小
-        position_ratio = self.params.position_size * signal_strength
+        position_ratio = self.p.position_size * signal_strength
         order_value = cash * position_ratio
         size = int(order_value / price)
 
@@ -194,7 +194,7 @@ class FactorStrategy(bt.Strategy):
             self.trade_count += 1
             logger.info(f"买入订单: 数量={size}, 价格={price:.2f}, 信号强度={signal_strength:.3f}")
 
-    def _execute_sell_order(self, signal_strength: float):
+    def _execute_sell_order(self, signal_strength: float) -> None:
         """执行卖出订单
 
         Args:
@@ -211,7 +211,7 @@ class FactorStrategy(bt.Strategy):
         # 如果允许做空，可以在这里添加做空逻辑
         # 当前实现只支持多头策略
 
-    def _check_stop_conditions(self):
+    def _check_stop_conditions(self) -> None:
         """检查止损止盈条件"""
         if not self.position:
             return
@@ -226,18 +226,18 @@ class FactorStrategy(bt.Strategy):
             return_rate = (entry_price - current_price) / entry_price
 
         # 检查止损
-        if self.params.stop_loss and return_rate <= -self.params.stop_loss:
+        if self.p.stop_loss and return_rate <= -self.p.stop_loss:
             self.close()
-            logger.info(f"止损平仓: 收益率={return_rate:.3f}, 止损线={-self.params.stop_loss:.3f}")
+            logger.info(f"止损平仓: 收益率={return_rate:.3f}, 止损线={-self.p.stop_loss:.3f}")
             return
 
         # 检查止盈
-        if self.params.take_profit and return_rate >= self.params.take_profit:
+        if self.p.take_profit and return_rate >= self.p.take_profit:
             self.close()
-            logger.info(f"止盈平仓: 收益率={return_rate:.3f}, 止盈线={self.params.take_profit:.3f}")
+            logger.info(f"止盈平仓: 收益率={return_rate:.3f}, 止盈线={self.p.take_profit:.3f}")
             return
 
-    def notify_order(self, order):
+    def notify_order(self, order: bt.Order) -> None:
         """订单状态通知"""
         if order.status in [order.Submitted, order.Accepted]:
             return
@@ -251,7 +251,7 @@ class FactorStrategy(bt.Strategy):
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
             logger.warning(f"订单失败: 状态={order.status}")
 
-    def notify_trade(self, trade):
+    def notify_trade(self, trade: bt.Trade) -> None:
         """交易完成通知"""
         if not trade.isclosed:
             return
@@ -269,6 +269,6 @@ class FactorStrategy(bt.Strategy):
             'current_position': self.position.size if self.position else 0,
             'last_signal': self.last_signal,
             'factor_count': len(self.factor_weights),
-            'buy_threshold': self.params.buy_threshold,
-            'sell_threshold': self.params.sell_threshold
+            'buy_threshold': self.p.buy_threshold,
+            'sell_threshold': self.p.sell_threshold
         }

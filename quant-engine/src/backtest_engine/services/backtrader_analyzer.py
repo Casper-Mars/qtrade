@@ -10,11 +10,12 @@
 import logging
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
-import backtrader as bt
+import backtrader as bt  # type: ignore
 import numpy as np
 
-from ..models.backtest_models import BacktestResult
+from ..models.backtest_models import BacktestFactorConfig, BacktestMode, BacktestResult
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +26,10 @@ class BacktraderAnalyzer:
     负责配置分析器、提取结果和计算绩效指标
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化分析器"""
-        self.analyzers = {}
-        self.custom_data = {}
+        self.analyzers: dict[str, Any] = {}
+        self.custom_data: dict[str, Any] = {}
 
         logger.info("Backtrader分析器初始化完成")
 
@@ -93,9 +94,13 @@ class BacktraderAnalyzer:
 
             # 构建回测结果
             result = BacktestResult(
-                # 基础信息
-                backtest_id="",  # 将由调用方设置
-                config_id="",    # 将由调用方设置
+                # 基础信息 - 使用UUID类型
+                config_id=UUID('00000000-0000-0000-0000-000000000000'),  # 将由调用方设置
+                factor_combination=BacktestFactorConfig(combination_id="temp", factors=[], description="临时配置"),  # 将由调用方设置
+                start_date="",  # 将由调用方设置
+                end_date="",    # 将由调用方设置
+                stock_code="",  # 将由调用方设置
+                backtest_mode=BacktestMode.HISTORICAL_SIMULATION,  # 将由调用方设置
 
                 # 核心绩效指标
                 total_return=performance_metrics.get('total_return', 0.0),
@@ -107,14 +112,13 @@ class BacktraderAnalyzer:
                 # 交易统计
                 trade_count=trade_stats.get('trade_count', 0),
                 win_rate=trade_stats.get('win_rate', 0.0),
-                avg_win=trade_stats.get('avg_win', 0.0),
+                avg_profit=trade_stats.get('avg_profit', 0.0),
                 avg_loss=trade_stats.get('avg_loss', 0.0),
-                profit_factor=trade_stats.get('profit_factor', 0.0),
+                profit_loss_ratio=trade_stats.get('profit_loss_ratio', 0.0),
 
                 # 风险指标
                 beta=risk_metrics.get('beta', 0.0),
-                alpha=risk_metrics.get('alpha', 0.0),
-                information_ratio=risk_metrics.get('information_ratio', 0.0),
+                var_95=risk_metrics.get('var_95', 0.0),
                 sortino_ratio=risk_metrics.get('sortino_ratio', 0.0),
 
                 # Backtrader特有指标
@@ -130,10 +134,9 @@ class BacktraderAnalyzer:
                 dates=portfolio_data.get('dates', []),
 
                 # 执行信息
-                start_time=datetime.now(),
-                end_time=datetime.now(),
                 execution_time=0.0,
-                status="completed"
+                data_points=0,
+                completed_at=datetime.now()
             )
 
             logger.info("回测结果提取完成")
@@ -143,7 +146,7 @@ class BacktraderAnalyzer:
             logger.error(f"提取回测结果失败: {e}")
             raise
 
-    def _extract_performance_metrics(self, analyzers) -> dict[str, float]:
+    def _extract_performance_metrics(self, analyzers: Any) -> dict[str, float]:
         """提取绩效指标
 
         Args:
@@ -180,7 +183,7 @@ class BacktraderAnalyzer:
 
         return metrics
 
-    def _extract_risk_metrics(self, analyzers) -> dict[str, float]:
+    def _extract_risk_metrics(self, analyzers: Any) -> dict[str, float]:
         """提取风险指标
 
         Args:
@@ -223,7 +226,7 @@ class BacktraderAnalyzer:
 
         return metrics
 
-    def _extract_trade_statistics(self, analyzers) -> dict[str, Any]:
+    def _extract_trade_statistics(self, analyzers: Any) -> dict[str, Any]:
         """提取交易统计
 
         Args:
@@ -262,7 +265,7 @@ class BacktraderAnalyzer:
 
         return stats
 
-    def _extract_backtrader_metrics(self, analyzers) -> dict[str, float]:
+    def _extract_backtrader_metrics(self, analyzers: Any) -> dict[str, float]:
         """提取Backtrader指标
 
         Args:
@@ -300,7 +303,7 @@ class BacktraderAnalyzer:
 
         return metrics
 
-    def _extract_portfolio_data(self, analyzers) -> dict[str, list]:
+    def _extract_portfolio_data(self, analyzers: Any) -> dict[str, list[Any]]:
         """提取资金曲线数据
 
         Args:
@@ -309,7 +312,7 @@ class BacktraderAnalyzer:
         Returns:
             资金曲线数据字典
         """
-        data = {
+        data: dict[str, list[Any]] = {
             'portfolio_value': [],
             'benchmark_value': [],
             'dates': []
@@ -340,13 +343,13 @@ class CalmarRatioAnalyzer(bt.Analyzer):
     计算年化收益率与最大回撤的比值
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.returns = []
-        self.peak = 0
-        self.max_dd = 0
+        self.returns: list[float] = []
+        self.peak: float = 0
+        self.max_dd: float = 0
 
-    def next(self):
+    def next(self) -> None:
         """每个交易日调用"""
         portfolio_value = self.strategy.broker.getvalue()
 
@@ -367,7 +370,7 @@ class CalmarRatioAnalyzer(bt.Analyzer):
             if drawdown > self.max_dd:
                 self.max_dd = drawdown
 
-    def get_analysis(self):
+    def get_analysis(self) -> dict[str, float]:
         """返回分析结果"""
         if not self.returns or self.max_dd == 0:
             return {'calmar_ratio': 0.0}
@@ -389,16 +392,16 @@ class PortfolioValueAnalyzer(bt.Analyzer):
     记录每日的资金曲线变化
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.portfolio_values = {}
+        self.portfolio_values: dict[Any, float] = {}
 
-    def next(self):
+    def next(self) -> None:
         """每个交易日调用"""
         current_date = self.strategy.datetime.date()
         portfolio_value = self.strategy.broker.getvalue()
         self.portfolio_values[current_date] = portfolio_value
 
-    def get_analysis(self):
+    def get_analysis(self) -> dict[Any, float]:
         """返回分析结果"""
         return self.portfolio_values

@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-import backtrader as bt
+import backtrader as bt  # type: ignore
 from pydantic import ValidationError
 
 from ...clients.tushare_client import TushareClient
@@ -21,9 +21,9 @@ from ..models.backtest_models import (
     BacktestConfig,
     BacktestResult,
 )
+from .backtrader_analyzer import BacktraderAnalyzer
 from .factor_data_feed import FactorDataFeed
 from .factor_strategy import FactorStrategy
-from .performance_analyzer import PerformanceAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class BacktestEngine:
         self.data_client = data_client
 
         # Cerebro引擎实例
-        self.cerebro: bt.Cerebro | None = None
+        self.cerebro: bt.Cerebro = bt.Cerebro()
 
         # 运行时状态
         self._current_config: BacktestConfig | None = None
@@ -107,7 +107,7 @@ class BacktestEngine:
             raise
         finally:
             self._current_config = None
-            self.cerebro = None
+            # 保持cerebro实例，不设为None
 
     def _validate_config(self, config: BacktestConfig) -> None:
         """验证回测配置
@@ -154,6 +154,7 @@ class BacktestEngine:
         Args:
             config: 回测配置
         """
+        # 重置Cerebro引擎
         self.cerebro = bt.Cerebro()
 
         # 设置初始资金
@@ -223,7 +224,7 @@ class BacktestEngine:
         self.cerebro.addanalyzer(bt.analyzers.SQN, _name='sqn')
 
         # 添加自定义性能分析器
-        self.cerebro.addanalyzer(PerformanceAnalyzer, _name='performance')
+        self.cerebro.addanalyzer(BacktraderAnalyzer, _name='performance')
 
         logger.info("分析器配置完成")
 

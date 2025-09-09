@@ -1,35 +1,20 @@
 """回测引擎服务层模块
 
-包含回测引擎的核心服务组件：
-- 数据回放器：历史数据回放和验证
-- 因子组合管理器：因子配置管理
-- 信号生成器：交易信号生成
-- 收益计算器：投资组合收益计算
+包含基于Backtrader框架的回测引擎核心服务组件：
+- BacktestEngine：回测引擎核心
+- FactorDataFeed：因子数据源
+- FactorStrategy：因子策略
+- BacktraderAnalyzer：回测结果分析器
 """
 
 from .backtest_engine import BacktestEngine
-from .data_replayer import DataReplayer, DataSnapshot
-from .factor_combination_manager import (
-    ConfigValidator,
-    FactorCombinationManager,
-)
-from .return_calculator import (
-    PerformanceMetrics,
-    PortfolioPosition,
-    ReturnCalculator,
-    TransactionCost,
-)
-from .signal_generator import SignalGenerator
+from .backtrader_analyzer import BacktraderAnalyzer
+from .factor_data_feed import FactorDataFeed
+from .factor_strategy import FactorStrategy
 
 __all__ = [
     "BacktestEngine",
-    "DataReplayer",
-    "DataSnapshot",
-    "FactorCombinationManager",
-    "ConfigValidator",
-    "SignalGenerator",
-    "ReturnCalculator",
-    "PerformanceMetrics",
-    "PortfolioPosition",
-    "TransactionCost",
+    "FactorDataFeed",
+    "FactorStrategy",
+    "BacktraderAnalyzer",
 ]

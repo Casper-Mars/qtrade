@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-import backtrader as bt
+import backtrader as bt  # type: ignore
 import pandas as pd
 
 from ...clients.tushare_client import TushareClient
@@ -47,7 +47,7 @@ class FactorDataFeed(bt.feeds.PandasData):
         ('factor_data', 6),            # 因子数据列索引
     )
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """初始化数据源"""
         # 提取自定义参数
         self.factor_service: FactorService = kwargs.pop('factor_service', None)
@@ -62,15 +62,16 @@ class FactorDataFeed(bt.feeds.PandasData):
                    self.start_date, self.end_date, self.factor_combination]):
             raise ValueError("缺少必要的初始化参数")
 
-        # 准备数据
-        dataframe = self._prepare_data()
+        # 准备数据 - 注意：这里需要在异步上下文中调用
+        # 暂时使用空DataFrame，实际数据准备在prepare_data方法中
+        dataframe = pd.DataFrame()
 
         # 调用父类初始化
         super().__init__(dataname=dataframe, **kwargs)
 
         logger.info(f"因子数据源初始化完成: {self.stock_code}, {len(dataframe)} 条记录")
 
-    def _prepare_data(self) -> pd.DataFrame:
+    async def prepare_data(self) -> pd.DataFrame:
         """准备回测数据
 
         Returns:
@@ -78,7 +79,7 @@ class FactorDataFeed(bt.feeds.PandasData):
         """
         try:
             # 1. 获取价格数据
-            price_data = self._get_price_data()
+            price_data = await self._get_price_data()
 
             # 2. 获取因子数据
             factor_data = self._get_factor_data()
@@ -95,7 +96,7 @@ class FactorDataFeed(bt.feeds.PandasData):
             logger.error(f"数据准备失败: {e}")
             raise
 
-    def _get_price_data(self) -> pd.DataFrame:
+    async def _get_price_data(self) -> pd.DataFrame:
         """获取价格数据
 
         Returns:
@@ -103,7 +104,7 @@ class FactorDataFeed(bt.feeds.PandasData):
         """
         try:
             # 使用Tushare客户端获取日线数据
-            price_data = self.data_client.get_daily_data(
+            price_data = await self.data_client.get_daily_data(
                 ts_code=self.stock_code,
                 start_date=self.start_date.replace('-', ''),
                 end_date=self.end_date.replace('-', '')
@@ -126,7 +127,6 @@ class FactorDataFeed(bt.feeds.PandasData):
                 'vol': 'volume'
             }
 
-
             price_data = price_data.rename(columns=column_mapping)
 
             # 选择需要的列
@@ -134,7 +134,8 @@ class FactorDataFeed(bt.feeds.PandasData):
             price_data = price_data[required_columns]
 
             logger.info(f"获取价格数据成功: {len(price_data)} 条记录")
-            return price_data
+            price_data_result: pd.DataFrame = price_data
+            return price_data_result
 
         except Exception as e:
             logger.error(f"获取价格数据失败: {e}")
@@ -221,7 +222,7 @@ class FactorDataFeed(bt.feeds.PandasData):
                 factor_columns = [col for col in merged_data.columns
                                 if col not in ['open', 'high', 'low', 'close', 'volume']]
 
-                def pack_factors(row):
+                def pack_factors(row: pd.Series) -> dict[str, float]:
                     factor_dict = {}
                     for col in factor_columns:
                         if col != 'stock_code':  # 排除非因子列

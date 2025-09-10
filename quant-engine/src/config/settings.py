@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # data-collector服务配置
     data_collector_base_url: str = Field(
-        default="http://localhost:8001", description="data-collector服务基础URL"
+        default="http://localhost:8080", description="data-collector服务基础URL"
     )
     data_collector_timeout: int = Field(default=30, description="请求超时时间（秒）")
 

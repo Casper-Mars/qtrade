@@ -115,9 +115,19 @@ class SentimentFactorCalculator:
 
                 # 分析标题情绪
                 title_sentiment = await self.sentiment_analyzer.analyze_sentiment(title)
+                
+                # 验证标题情绪分析结果
+                if not all(key in title_sentiment for key in ["positive", "negative", "neutral", "confidence"]):
+                    logger.error(f"标题情绪分析结果不完整: {title_sentiment}")
+                    continue
 
                 # 分析内容情绪
                 content_sentiment = await self.sentiment_analyzer.analyze_sentiment(content)
+                
+                # 验证内容情绪分析结果
+                if not all(key in content_sentiment for key in ["positive", "negative", "neutral", "confidence"]):
+                    logger.error(f"内容情绪分析结果不完整: {content_sentiment}")
+                    continue
 
                 # 计算综合情绪分数
                 title_score = (
@@ -218,11 +228,12 @@ class SentimentFactorCalculator:
         """
         try:
             # 获取新闻数据
-            news_data = await self.data_client.get_news_data(
-                symbol=stock_code,
-                start_date=start_date.isoformat(),
-                end_date=end_date.isoformat()
-            )
+            async with self.data_client as client:
+                news_data = await client.get_news_data(
+                    symbol=stock_code,
+                    start_date=start_date.isoformat(),
+                    end_date=end_date.isoformat()
+                )
 
             if not news_data:
                 logger.warning(f"股票 {stock_code} 在指定时间范围内没有新闻数据")
@@ -231,14 +242,13 @@ class SentimentFactorCalculator:
                     "start_date": start_date.isoformat(),
                     "end_date": end_date.isoformat(),
                     "sentiment_factor": 0.0,
-                    "sentiment_details": {
-                        "sentiment_score": 0.0,
-                        "positive_score": 0.0,
-                        "negative_score": 0.0,
-                        "neutral_score": 1.0,
-                        "news_count": 0,
-                        "confidence": 0.0
-                    },
+                    "sentiment_score": 0.0,
+                    "positive_score": 0.0,
+                    "negative_score": 0.0,
+                    "neutral_score": 1.0,
+                    "news_count": 0,
+                    "confidence": 0.0,
+                    "volume_adjustment": 0.0,
                     "calculation_time": datetime.now().isoformat()
                 }
 
@@ -255,15 +265,20 @@ class SentimentFactorCalculator:
             # 最终因子值
             final_factor = sentiment_factor * volume_adjustment
 
-            return {
+            # 将sentiment_details中的键提升到顶层，以便API接口直接访问
+            result = {
                 "stock_code": stock_code,
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
                 "sentiment_factor": final_factor,
-                "sentiment_details": sentiment_result,
                 "volume_adjustment": volume_adjustment,
                 "calculation_time": datetime.now().isoformat()
             }
+            
+            # 添加sentiment_result中的所有键到顶层
+            result.update(sentiment_result)
+            
+            return result
 
         except Exception as e:
             logger.error(f"计算股票 {stock_code} 情绪因子失败: {str(e)}")

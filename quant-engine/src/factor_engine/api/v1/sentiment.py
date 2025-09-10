@@ -1,12 +1,12 @@
 """情绪因子API接口"""
 
 from datetime import datetime, timedelta
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from loguru import logger
 
-from ...calculators.sentiment import SentimentFactorCalculator
-from ...dao import NewsSentimentFactorDAO
+from ...services.sentiment_service import SentimentFactorService
 from ...models.schemas import (
     ApiResponse,
     BatchSentimentFactorRequest,
@@ -19,8 +19,16 @@ from ...models.schemas import (
 # 创建路由器
 router = APIRouter()
 
-# 初始化计算器
-sentiment_calculator = SentimentFactorCalculator()
+# 全局情感因子服务实例
+_sentiment_service_instance: Optional[SentimentFactorService] = None
+
+
+def get_sentiment_service() -> SentimentFactorService:
+    """获取情感因子服务实例（单例模式）"""
+    global _sentiment_service_instance
+    if _sentiment_service_instance is None:
+        _sentiment_service_instance = SentimentFactorService()
+    return _sentiment_service_instance
 
 
 @router.post(
@@ -31,6 +39,7 @@ sentiment_calculator = SentimentFactorCalculator()
 )
 async def calculate_sentiment_factor(
     request: SentimentFactorRequest,
+    sentiment_service: SentimentFactorService = Depends(get_sentiment_service),
 ) -> ApiResponse:
     """计算单个股票情绪因子
 
@@ -44,62 +53,18 @@ async def calculate_sentiment_factor(
         HTTPException: 计算失败时抛出异常
     """
     try:
-        logger.info(f"开始计算情绪因子: {request.stock_code} ({request.date})")
-
-        # 计算日期范围
-        start_date = datetime.strptime(request.date, "%Y-%m-%d") - timedelta(days=request.time_window)
-        end_date = datetime.strptime(request.date, "%Y-%m-%d")
-
-        # 计算情绪因子
-        result = await sentiment_calculator.calculate_stock_sentiment_factor(
-            request.stock_code,
-            start_date,
-            end_date
-        )
-
-        if result is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"未找到股票 {request.stock_code} 在指定时间范围内的新闻数据"
-            )
-
-        # 保存到数据库
-        await NewsSentimentFactorDAO.save_sentiment_factor(
-            stock_code=request.stock_code,
-            sentiment_factor=result["sentiment_factor"],
-            positive_score=result["positive_score"],
-            negative_score=result["negative_score"],
-            neutral_score=result["neutral_score"],
-            confidence=result["confidence"],
-            news_count=result["news_count"],
-            calculation_date=request.date,
-            start_date=start_date.strftime("%Y-%m-%d"),
-            end_date=end_date.strftime("%Y-%m-%d"),
-            volume_adjustment=1.0
-        )
-
-        logger.info(f"情绪因子计算完成: {request.stock_code} = {result['sentiment_factor']}")
-
-        # 构造响应数据
-        from ...models.schemas import SentimentFactorResponse
-        response_data = SentimentFactorResponse(
-            stock_code=request.stock_code,
-            date=request.date,
-            sentiment_factors={
-                "overall": result["sentiment_factor"],
-                "positive": result["positive_score"],
-                "negative": result["negative_score"],
-                "neutral": result["neutral_score"]
-            },
-            source_weights={"news": 1.0},
-            data_counts={"news": result["news_count"]}
-        )
-
+        response_data = await sentiment_service.calculate_sentiment_factor(request)
+        
         return ApiResponse(
             code=200,
             message="情绪因子计算成功",
             data=response_data.dict(),
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        ) from e
 
     except HTTPException:
         raise
@@ -119,6 +84,7 @@ async def calculate_sentiment_factor(
 )
 async def batch_calculate_sentiment_factors(
     request: BatchSentimentFactorRequest,
+    sentiment_service: SentimentFactorService = Depends(get_sentiment_service),
 ) -> ApiResponse:
     """批量计算情绪因子
 
@@ -129,88 +95,8 @@ async def batch_calculate_sentiment_factors(
         ApiResponse: 包含批量计算结果的响应
     """
     try:
-        logger.info(f"开始批量计算情绪因子: {len(request.stock_codes)} 只股票")
-
-        # 计算日期范围
-        end_date = datetime.strptime(request.calculation_date, "%Y-%m-%d")
-        start_date = end_date - timedelta(days=request.days_back)
-
-        results = []
-        errors = []
-        successful_count = 0
-
-        # 批量计算情绪因子
-        calculation_date = datetime.strptime(request.calculation_date, "%Y-%m-%d")
-        batch_results = await sentiment_calculator.calculate_batch_sentiment_factors(
-            request.stock_codes,
-            calculation_date
-        )
-
-        for i, stock_code in enumerate(request.stock_codes):
-            try:
-                # 获取对应的计算结果
-                result = batch_results[i] if i < len(batch_results) else None
-                if not result:
-                    errors.append({
-                        "stock_code": stock_code,
-                        "error": "未找到新闻数据"
-                    })
-                    continue
-
-                # 保存到数据库
-                start_date = calculation_date - timedelta(days=7)
-                await NewsSentimentFactorDAO.save_sentiment_factor(
-                    stock_code=stock_code,
-                    sentiment_factor=result["sentiment_factor"],
-                    positive_score=result["positive_score"],
-                    negative_score=result["negative_score"],
-                    neutral_score=result["neutral_score"],
-                    confidence=result["confidence"],
-                    news_count=result["news_count"],
-                    calculation_date=request.calculation_date,
-                    start_date=start_date.strftime("%Y-%m-%d"),
-                    end_date=request.calculation_date,
-                    volume_adjustment=1.0
-                )
-                results.append(result)
-                successful_count += 1
-
-            except Exception as e:
-                logger.error(f"计算股票 {stock_code} 情绪因子失败: {e}")
-                errors.append({
-                    "stock_code": stock_code,
-                    "error": str(e)
-                })
-
-        # 转换结果格式
-        from ...models.schemas import SentimentFactorResponse
-        response_results = []
-        for result in results:
-            if result:
-                response_results.append(SentimentFactorResponse(
-                     stock_code=result["stock_code"],
-                     date=request.calculation_date,
-                     sentiment_factors={
-                         "overall": result["sentiment_factor"],
-                         "positive": result["positive_score"],
-                         "negative": result["negative_score"],
-                         "neutral": result["neutral_score"]
-                     },
-                     source_weights={"news": 1.0},
-                     data_counts={"news": result["news_count"]}
-                 ))
-
-        response_data = BatchSentimentFactorResponse(
-            calculation_date=request.calculation_date,
-            total_stocks=len(request.stock_codes),
-            successful_stocks=successful_count,
-            failed_stocks=len(errors),
-            results=response_results,
-            errors=errors if errors else None,
-        )
-
-        logger.info(f"批量计算完成: 成功 {successful_count}/{len(request.stock_codes)}")
-
+        response_data = await sentiment_service.batch_calculate_sentiment_factors(request)
+        
         return ApiResponse(
             code=200,
             message="批量情绪因子计算完成",

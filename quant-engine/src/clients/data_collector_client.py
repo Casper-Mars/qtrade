@@ -106,8 +106,22 @@ class DataCollectorClient:
         if end_date:
             params["end_date"] = end_date
 
-        result = await self._request("GET", "/api/v1/news/data", params=params)
-        return result.get("data", [])
+        # 根据是否有symbol参数选择不同的API端点
+        if symbol:
+            # 使用按股票查询的API，symbol作为stock_code查询参数
+            endpoint = "/api/v1/news/by-stock"
+            params["stock_code"] = symbol
+            params.pop("symbol", None)
+        else:
+            # 使用通用新闻查询API
+            endpoint = "/api/v1/news"
+        
+        result = await self._request("GET", endpoint, params=params)
+        data = result.get("data", {})
+        # data-collector返回的格式是 {"data": {"list": [...], "total": N}}
+        if isinstance(data, dict) and "list" in data:
+            return data["list"] or []
+        return data if isinstance(data, list) else []
 
     async def get_policy_data(
         self,

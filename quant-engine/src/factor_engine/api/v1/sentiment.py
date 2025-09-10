@@ -111,13 +111,13 @@ async def batch_calculate_sentiment_factors(
 
 
 @router.get(
-    "/factor/{stock_code}",
+    "/factor",
     response_model=ApiResponse,
     summary="获取股票情绪因子",
     description="获取指定股票和日期的情绪因子数据",
 )
 async def get_sentiment_factor(
-    stock_code: str,
+    stock_code: str = Query(..., description="股票代码"),
     calculation_date: str = Query(..., description="计算日期，格式：YYYY-MM-DD"),
     sentiment_service: SentimentFactorService = Depends(get_sentiment_service),
 ) -> ApiResponse:
@@ -164,13 +164,13 @@ async def get_sentiment_factor(
 
 
 @router.get(
-    "/factors/date/{calculation_date}",
+    "/factors/date",
     response_model=ApiResponse,
     summary="获取指定日期的所有情绪因子",
     description="获取指定日期的所有股票情绪因子数据",
 )
 async def get_sentiment_factors_by_date(
-    calculation_date: str,
+    calculation_date: str = Query(..., description="计算日期，格式：YYYY-MM-DD"),
     limit: int = Query(default=100, description="返回记录数限制"),
     sentiment_service: SentimentFactorService = Depends(get_sentiment_service),
 ) -> ApiResponse:

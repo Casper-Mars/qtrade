@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Any, ClassVar
 
 from loguru import logger
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, desc, func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -815,25 +815,75 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
             raise
 
     @classmethod
+    async def save_sentiment_factor(
+        cls,
+        stock_code: str,
+        sentiment_factor: float,
+        positive_score: float,
+        negative_score: float,
+        neutral_score: float,
+        confidence: float,
+        news_count: int,
+        calculation_date: str,
+        start_date: str,
+        end_date: str,
+        volume_adjustment: float,
+    ) -> int:
+        """保存情绪因子数据（简化版本）
+        
+        Args:
+            stock_code: 股票代码
+            sentiment_factor: 情绪因子值
+            positive_score: 积极情绪分数
+            negative_score: 消极情绪分数
+            neutral_score: 中性情绪分数
+            confidence: 置信度
+            news_count: 新闻数量
+            calculation_date: 计算日期
+            start_date: 数据开始日期
+            end_date: 数据结束日期
+            volume_adjustment: 成交量调整系数
+            
+        Returns:
+            int: 保存的记录ID
+        """
+        return await cls.save_sentiment_factor_extended(
+            stock_code=stock_code,
+            sentiment_factor=sentiment_factor,
+            positive_score=positive_score,
+            negative_score=negative_score,
+            neutral_score=neutral_score,
+            confidence=confidence,
+            news_count=news_count,
+            calculation_date=calculation_date,
+            start_date=start_date,
+            end_date=end_date,
+            volume_adjustment=volume_adjustment,
+        )
+
+    @classmethod
     async def get_sentiment_factor_response(
-        cls, stock_code: str, calculation_date: str
+        cls, stock_code: str, date: str
     ) -> Any:
         """获取指定股票和日期的情绪因子
 
         Args:
             stock_code: 股票代码
-            calculation_date: 计算日期
+            date: 计算日期
 
         Returns:
             SentimentFactorResponse | None: 情绪因子响应对象或None
         """
         try:
+            # 将字符串日期转换为date对象
+            date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+            
             async with get_db_session() as session:
                 result = await session.execute(
                     select(SentimentFactor).where(
                         and_(
                             SentimentFactor.stock_code == stock_code,
-                            SentimentFactor.calculation_date == calculation_date,
+                            SentimentFactor.calculation_date == date_obj,
                         )
                     )
                 )
@@ -842,13 +892,13 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
                 if record:
                     return SentimentFactorResponse(
                         stock_code=record.stock_code,
-                        date=record.calculation_date,
+                        date=record.calculation_date.isoformat(),
                         sentiment_factors={
-                            "sentiment_factor": record.sentiment_factor,
-                            "positive_score": record.positive_score,
-                            "negative_score": record.negative_score,
-                            "neutral_score": record.neutral_score,
-                            "confidence": record.confidence,
+                            "sentiment_factor": record.factor_value,
+                            "positive_score": 0.0,  # 默认值，因为SentimentFactor模型中没有这些字段
+                            "negative_score": 0.0,
+                            "neutral_score": 0.0,
+                            "confidence": 0.0,
                         },
                         source_weights={"news": 1.0},
                         data_counts={"news_count": record.news_count},
@@ -934,12 +984,12 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
 
                 return [
                     {
-                        "date": record.calculation_date,
-                        "sentiment_factor": record.sentiment_factor,
-                        "positive_score": record.positive_score,
-                        "negative_score": record.negative_score,
-                        "neutral_score": record.neutral_score,
-                        "confidence": record.confidence,
+                        "date": record.calculation_date.strftime("%Y-%m-%d"),
+                        "sentiment_factor": float(record.factor_value),
+                        "positive_score": 0.0,  # 暂时使用默认值
+                        "negative_score": 0.0,  # 暂时使用默认值
+                        "neutral_score": 1.0,   # 暂时使用默认值
+                        "confidence": 0.5,      # 暂时使用默认值
                         "news_count": record.news_count,
                     }
                     for record in records
@@ -971,17 +1021,17 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
                 # 获取统计数据
                 result = await session.execute(
                     select(
-                        func.avg(SentimentFactor.sentiment_factor).label("avg_sentiment"),
-                        func.max(SentimentFactor.sentiment_factor).label("max_sentiment"),
-                        func.min(SentimentFactor.sentiment_factor).label("min_sentiment"),
-                        func.stddev(SentimentFactor.sentiment_factor).label("std_sentiment"),
+                        func.avg(SentimentFactor.factor_value).label("avg_sentiment"),
+                        func.max(SentimentFactor.factor_value).label("max_sentiment"),
+                        func.min(SentimentFactor.factor_value).label("min_sentiment"),
+                        func.stddev(SentimentFactor.factor_value).label("std_sentiment"),
                         func.sum(SentimentFactor.news_count).label("total_news"),
                         func.count(SentimentFactor.id).label("total_days"),
                     ).where(
                         and_(
                             SentimentFactor.stock_code == stock_code,
                             SentimentFactor.calculation_date >= func.date_sub(
-                                func.curdate(), func.interval(days, "DAY")
+                                func.curdate(), text(f"INTERVAL {days} DAY")
                             ),
                         )
                     )

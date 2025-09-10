@@ -48,14 +48,12 @@ class FactorService:
     提供统一的因子计算和管理服务
     """
 
-    def __init__(self, factor_dao: FactorDAO, data_client: TushareClient):
+    def __init__(self, data_client: TushareClient):
         """初始化因子服务
 
         Args:
-            factor_dao: 因子数据访问对象
             data_client: Tushare数据客户端
         """
-        self.factor_dao = factor_dao
         self.data_client = data_client
         self.technical_calculator = TechnicalFactorCalculator()
         self.fundamental_calculator = FundamentalFactorCalculator(data_client)
@@ -130,7 +128,7 @@ class FactorService:
         """
         try:
             # 从数据库查询历史数据
-            history_data = await self.factor_dao.get_factor_history(
+            history_data = await FactorDAO.get_factor_history(
                 stock_code=stock_code,
                 factor_name=factor_name,
                 start_date=start_date,
@@ -244,7 +242,7 @@ class FactorService:
             start_date = start_dt.strftime("%Y-%m-%d")
 
             # 从数据访问层获取价格数据
-            price_data = await self.factor_dao.get_stock_price_data(
+            price_data = await FactorDAO.get_stock_price_data(
                 stock_code=stock_code,
                 start_date=start_date,
                 end_date=end_date or end_dt.strftime("%Y-%m-%d"),
@@ -274,7 +272,7 @@ class FactorService:
                 if isinstance(factor_value, dict):
                     # 处理复合因子（如MACD）
                     for sub_factor, sub_value in factor_value.items():
-                        await self.factor_dao.save_technical_factor(
+                        await FactorDAO.save_technical_factor(
                             stock_code=stock_code,
                             factor_name=f"{factor_name}_{sub_factor}",
                             factor_value=float(sub_value),
@@ -282,7 +280,7 @@ class FactorService:
                         )
                 else:
                     # 处理简单因子
-                    await self.factor_dao.save_technical_factor(
+                    await FactorDAO.save_technical_factor(
                         stock_code=stock_code,
                         factor_name=factor_name,
                         factor_value=float(factor_value),
@@ -309,7 +307,7 @@ class FactorService:
             缓存的因子数据
         """
         try:
-            cached_factors = await self.factor_dao.get_cached_factors(
+            cached_factors = await FactorDAO.get_cached_factors(
                 stock_code=stock_code,
                 factor_names=factor_names,
                 calculation_date=calculation_date,
@@ -337,7 +335,7 @@ class FactorService:
             ttl: 缓存过期时间（秒）
         """
         try:
-            await self.factor_dao.cache_factors(
+            await FactorDAO.cache_factors(
                 stock_code=stock_code,
                 calculation_date=calculation_date,
                 factors_data=factors_data,
@@ -387,7 +385,7 @@ class FactorService:
             )
 
             # 保存计算结果到数据库
-            await self.factor_dao.save_fundamental_factors(
+            await FactorDAO.save_fundamental_factors(
                 stock_code=request.stock_code,
                 factors=factors_result,
                 growth_rates=growth_rates,
@@ -490,7 +488,7 @@ class FactorService:
             基本面因子历史数据
         """
         try:
-            history_data = await self.factor_dao.get_fundamental_factor_history(
+            history_data = await FactorDAO.get_fundamental_factor_history(
                 stock_code=stock_code,
                 factor_name=factor_name,
                 start_period=start_period,
@@ -519,7 +517,7 @@ class FactorService:
             缓存的基本面因子响应或None
         """
         try:
-            cached_data = await self.factor_dao.get_cached_fundamental_factors(
+            cached_data = await FactorDAO.get_cached_fundamental_factors(
                 stock_code=stock_code, period=period
             )
 
@@ -596,7 +594,7 @@ class FactorService:
             市场因子历史数据响应
         """
         try:
-            history_data = await self.factor_dao.get_market_factor_history(
+            history_data = await FactorDAO.get_market_factor_history(
                 stock_code=stock_code,
                 factor_name=factor_name,
                 start_date=start_date,
@@ -688,7 +686,7 @@ class FactorService:
             factors: 因子数据
         """
         try:
-            await self.factor_dao.save_market_factors(
+            await FactorDAO.save_market_factors(
                 stock_code=stock_code, trade_date=trade_date, factors=factors
             )
             logger.debug(f"成功保存股票{stock_code}的市场因子数据")

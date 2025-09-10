@@ -4,10 +4,9 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
 from loguru import logger
-from sqlalchemy.orm import Session
 
 from ..calculators.sentiment import SentimentFactorCalculator
-from ..dao import NewsSentimentFactorDAO
+from ..dao.base import NewsSentimentFactorDAO
 from ..models.schemas import (
     SentimentFactorRequest,
     SentimentFactorResponse,
@@ -16,7 +15,6 @@ from ..models.schemas import (
     SentimentTrendRequest,
     SentimentTrendResponse,
 )
-from ...config.database import get_db_session
 
 
 class SentimentFactorService:
@@ -31,18 +29,6 @@ class SentimentFactorService:
     def __init__(self):
         """初始化情感因子服务"""
         self.sentiment_calculator = SentimentFactorCalculator()
-        self._sentiment_dao: Optional[NewsSentimentFactorDAO] = None
-    
-    def _get_dao(self) -> NewsSentimentFactorDAO:
-        """获取DAO实例（懒加载单例模式）
-        
-        Returns:
-            NewsSentimentFactorDAO: DAO实例
-        """
-        if self._sentiment_dao is None:
-            db_session: Session = next(get_db_session())
-            self._sentiment_dao = NewsSentimentFactorDAO(db_session)
-        return self._sentiment_dao
     
     async def calculate_sentiment_factor(self, request: SentimentFactorRequest) -> SentimentFactorResponse:
         """计算单个股票情感因子
@@ -75,12 +61,18 @@ class SentimentFactorService:
                 raise ValueError(f"未找到股票 {request.stock_code} 在指定时间范围内的新闻数据")
             
             # 保存到数据库
-            sentiment_dao = self._get_dao()
-            sentiment_dao.create(
+            await NewsSentimentFactorDAO.save_sentiment_factor(
                 stock_code=request.stock_code,
-                factor_value=result["sentiment_factor"],
+                sentiment_factor=result["sentiment_factor"],
+                positive_score=result["positive_score"],
+                negative_score=result["negative_score"],
+                neutral_score=result["neutral_score"],
+                confidence=result.get("confidence", 0.8),
+                news_count=result["news_count"],
                 calculation_date=request.date,
-                news_count=result["news_count"]
+                start_date=start_date.strftime("%Y-%m-%d"),
+                end_date=end_date.strftime("%Y-%m-%d"),
+                volume_adjustment=1.0
             )
             
             logger.info(f"情感因子计算完成: {request.stock_code} = {result['sentiment_factor']}")
@@ -141,7 +133,7 @@ class SentimentFactorService:
                         })
                         continue
                     
-                    # 保存到数据库
+                    # 批量保存到数据库
                     start_date = calculation_date - timedelta(days=7)
                     await NewsSentimentFactorDAO.save_sentiment_factor(
                         stock_code=stock_code,
@@ -209,22 +201,20 @@ class SentimentFactorService:
             情感因子数据或None
         """
         try:
-            dao = self._get_dao()
-            factors = dao.get_by_stock_and_date(stock_code, date)
+            factor_data = await NewsSentimentFactorDAO.get_sentiment_factor_response(
+                stock_code=stock_code,
+                date=date
+            )
             
-            if not factors:
+            if not factor_data:
                 return None
                 
-            # 取第一个因子数据（通常一个股票一天只有一条记录）
-            factor = factors[0]
             return {
-                "id": factor.id,
-                "stock_code": factor.stock_code,
-                "factor_value": factor.factor_value,
-                "calculation_date": factor.calculation_date.isoformat(),
-                "news_count": factor.news_count,
-                "created_at": factor.created_at.isoformat(),
-                "updated_at": factor.updated_at.isoformat()
+                "stock_code": factor_data.stock_code,
+                "date": factor_data.date,
+                "sentiment_factors": factor_data.sentiment_factors,
+                "source_weights": factor_data.source_weights,
+                "data_counts": factor_data.data_counts
             }
         except Exception as e:
             logger.error(f"获取情感因子数据失败: {e}")
@@ -241,8 +231,10 @@ class SentimentFactorService:
             情感因子数据列表
         """
         try:
-            dao = self._get_dao()
-            factors = await dao.get_sentiment_factors_by_date(date, limit)
+            factors = await NewsSentimentFactorDAO.get_sentiment_factors_by_date_response(
+                date=date,
+                limit=limit
+            )
             
             # 转换为字典格式
             result = []
@@ -270,16 +262,14 @@ class SentimentFactorService:
             SentimentTrendResponse: 趋势数据响应
         """
         try:
-            dao = self._get_dao()
-            
             # 获取趋势数据
-            trend_data = await dao.get_sentiment_trend(
+            trend_data = await NewsSentimentFactorDAO.get_sentiment_trend(
                 stock_code=request.stock_code,
                 days=request.days,
             )
             
             # 获取统计数据
-            statistics = await dao.get_sentiment_statistics(
+            statistics = await NewsSentimentFactorDAO.get_sentiment_statistics(
                 stock_code=request.stock_code,
                 days=request.days,
             )

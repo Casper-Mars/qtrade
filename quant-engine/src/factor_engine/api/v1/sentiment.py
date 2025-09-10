@@ -247,3 +247,44 @@ async def get_sentiment_trend(
             status_code=500,
             detail=f"获取情绪趋势时发生错误: {str(e)}"
         ) from e
+
+
+@router.post(
+    "/statistics",
+    response_model=ApiResponse,
+    summary="获取股票情绪统计",
+    description="获取指定股票的情绪统计数据",
+)
+async def get_sentiment_statistics(
+    request: SentimentTrendRequest,
+    sentiment_service: SentimentFactorService = Depends(get_sentiment_service),
+) -> ApiResponse:
+    """获取股票情绪统计
+
+    Args:
+        request: 情绪统计查询请求
+        sentiment_service: 情绪因子服务
+
+    Returns:
+        ApiResponse: 包含统计数据的响应
+    """
+    try:
+        # 获取统计数据
+        from ...dao.base import NewsSentimentFactorDAO
+        statistics = await NewsSentimentFactorDAO.get_sentiment_statistics(
+            stock_code=request.stock_code,
+            days=request.days,
+        )
+
+        return ApiResponse(
+            code=200,
+            message="获取情绪统计成功",
+            data=statistics,
+        )
+
+    except Exception as e:
+        logger.error(f"获取情绪统计失败: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取情绪统计时发生错误: {str(e)}"
+        ) from e

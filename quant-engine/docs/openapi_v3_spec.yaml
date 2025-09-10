@@ -1,0 +1,1751 @@
+openapi: 3.0.3
+info:
+  title: 量化因子计算引擎 API
+  description: |
+    量化因子计算引擎提供技术因子、基本面因子、市场因子和情绪因子的计算服务。
+    
+    ## 功能特性
+    - 技术因子计算：支持MA、RSI、MACD等技术指标
+    - 基本面因子计算：支持ROE、ROA、毛利率等财务指标
+    - 市场因子计算：支持市值、换手率等市场指标
+    - 情绪因子计算：基于新闻和公告的情绪分析
+    - 统一因子计算：一次性计算多种类型因子
+    - 批量计算：支持多股票批量处理
+    - 历史数据查询：支持因子历史数据查询
+    
+    ## 数据格式
+    - 日期格式：YYYY-MM-DD
+    - 股票代码格式：支持000001、000001.SZ、SH600000等格式
+    - 报告期格式：2023Q4（季度）或2023（年度）
+  version: 1.0.0
+  contact:
+    name: 量化团队
+    email: quant@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: 开发环境
+  - url: https://api.qtrade.com/v1
+    description: 生产环境
+
+tags:
+  - name: technical-factors
+    description: 技术因子计算接口
+  - name: fundamental-factors
+    description: 基本面因子计算接口
+  - name: market-factors
+    description: 市场因子计算接口
+  - name: sentiment-factors
+    description: 情绪因子计算接口
+  - name: unified-factors
+    description: 统一因子计算接口
+
+paths:
+  # 技术因子接口
+  /technical/calculate:
+    post:
+      tags:
+        - technical-factors
+      summary: 计算技术因子
+      description: 基于股票价格数据计算技术指标因子
+      operationId: calculateTechnicalFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TechnicalFactorRequest'
+            examples:
+              basic:
+                summary: 基本技术因子计算
+                value:
+                  stock_code: "000001.SZ"
+                  factors: ["MA", "RSI", "MACD"]
+                  end_date: "2024-01-15"
+                  period: 20
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TechnicalFactorResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /technical/history:
+    get:
+      tags:
+        - technical-factors
+      summary: 查询技术因子历史数据
+      description: 获取指定股票和因子的历史数据
+      operationId: getTechnicalFactorHistory
+      parameters:
+        - name: stock_code
+          in: query
+          required: true
+          description: 股票代码
+          schema:
+            type: string
+            example: "000001.SZ"
+        - name: factor_name
+          in: query
+          required: true
+          description: 因子名称
+          schema:
+            type: string
+            example: "MA"
+        - name: start_date
+          in: query
+          required: true
+          description: 开始日期，格式：YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+            example: "2024-01-01"
+        - name: end_date
+          in: query
+          required: true
+          description: 结束日期，格式：YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+            example: "2024-01-31"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TechnicalFactorHistoryResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /technical/batch-calculate:
+    post:
+      tags:
+        - technical-factors
+      summary: 批量计算技术因子
+      description: 批量计算多个股票的技术因子
+      operationId: batchCalculateTechnicalFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchTechnicalFactorRequest'
+            examples:
+              batch:
+                summary: 批量技术因子计算
+                value:
+                  stock_codes: ["000001.SZ", "000002.SZ", "600000.SH"]
+                  factors: ["MA", "RSI"]
+                  end_date: "2024-01-15"
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTechnicalFactorResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 基本面因子接口
+  /fundamental/calculate:
+    post:
+      tags:
+        - fundamental-factors
+      summary: 计算基本面因子
+      description: 基于财务数据计算基本面因子
+      operationId: calculateFundamentalFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FundamentalFactorRequest'
+            examples:
+              quarterly:
+                summary: 季度基本面因子计算
+                value:
+                  stock_code: "000001.SZ"
+                  factors: ["ROE", "ROA", "GROSS_MARGIN"]
+                  period: "2023Q4"
+                  report_type: "quarterly"
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundamentalFactorResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /fundamental/history:
+    get:
+      tags:
+        - fundamental-factors
+      summary: 查询基本面因子历史数据
+      description: 获取指定股票和因子的历史财务数据
+      operationId: getFundamentalFactorHistory
+      parameters:
+        - name: stock_code
+          in: query
+          required: true
+          description: 股票代码
+          schema:
+            type: string
+            example: "000001.SZ"
+        - name: factor_name
+          in: query
+          required: true
+          description: 因子名称
+          schema:
+            type: string
+            example: "ROE"
+        - name: start_period
+          in: query
+          required: true
+          description: 开始期间，格式：YYYY-Q[1-4] 或 YYYY
+          schema:
+            type: string
+            example: "2023Q1"
+        - name: end_period
+          in: query
+          required: true
+          description: 结束期间，格式：YYYY-Q[1-4] 或 YYYY
+          schema:
+            type: string
+            example: "2023Q4"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /fundamental/batch-calculate:
+    post:
+      tags:
+        - fundamental-factors
+      summary: 批量计算基本面因子
+      description: 批量计算多个股票的基本面因子
+      operationId: batchCalculateFundamentalFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchFundamentalFactorRequest'
+            examples:
+              batch:
+                summary: 批量基本面因子计算
+                value:
+                  stock_codes: ["000001.SZ", "000002.SZ"]
+                  factors: ["ROE", "ROA"]
+                  period: "2023Q4"
+                  report_type: "quarterly"
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchFundamentalFactorResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 市场因子接口
+  /market/calculate:
+    post:
+      tags:
+        - market-factors
+      summary: 计算市场因子
+      description: 基于市场数据计算市场因子
+      operationId: calculateMarketFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketFactorRequest'
+            examples:
+              market:
+                summary: 市场因子计算
+                value:
+                  stock_code: "000001.SZ"
+                  factors: ["total_market_cap", "turnover_rate"]
+                  trade_date: "2024-01-15"
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketFactorResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /market/history:
+    get:
+      tags:
+        - market-factors
+      summary: 查询市场因子历史数据
+      description: 获取指定股票和因子的历史市场数据
+      operationId: getMarketFactorHistory
+      parameters:
+        - name: stock_code
+          in: query
+          required: true
+          description: 股票代码
+          schema:
+            type: string
+            example: "000001.SZ"
+        - name: factor_name
+          in: query
+          required: true
+          description: 因子名称
+          schema:
+            type: string
+            example: "total_market_cap"
+        - name: start_date
+          in: query
+          required: true
+          description: 开始日期，格式：YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+            example: "2024-01-01"
+        - name: end_date
+          in: query
+          required: true
+          description: 结束日期，格式：YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+            example: "2024-01-31"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketFactorHistoryResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /market/batch-calculate:
+    post:
+      tags:
+        - market-factors
+      summary: 批量计算市场因子
+      description: 批量计算多个股票的市场因子
+      operationId: batchCalculateMarketFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchMarketFactorRequest'
+            examples:
+              batch:
+                summary: 批量市场因子计算
+                value:
+                  stock_codes: ["000001.SZ", "600000.SH"]
+                  factors: ["total_market_cap", "turnover_rate"]
+                  trade_date: "2024-01-15"
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchMarketFactorResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 情绪因子接口
+  /sentiment/calculate:
+    post:
+      tags:
+        - sentiment-factors
+      summary: 计算单个股票情绪因子
+      description: 基于新闻数据计算指定股票的情绪因子
+      operationId: calculateSentimentFactor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SentimentFactorRequest'
+            examples:
+              sentiment:
+                summary: 情绪因子计算
+                value:
+                  stock_code: "000001.SZ"
+                  date: "2024-01-15"
+                  sources: ["news", "announcements"]
+                  time_window: 7
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sentiment/batch-calculate:
+    post:
+      tags:
+        - sentiment-factors
+      summary: 批量计算情绪因子
+      description: 批量计算多个股票的情绪因子
+      operationId: batchCalculateSentimentFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchSentimentFactorRequest'
+            examples:
+              batch:
+                summary: 批量情绪因子计算
+                value:
+                  stock_codes: ["000001.SZ", "000002.SZ"]
+                  calculation_date: "2024-01-15"
+                  days_back: 7
+                  use_model: true
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sentiment/factor:
+    get:
+      tags:
+        - sentiment-factors
+      summary: 获取股票情绪因子
+      description: 获取指定股票和日期的情绪因子数据
+      operationId: getSentimentFactor
+      parameters:
+        - name: stock_code
+          in: query
+          required: true
+          description: 股票代码
+          schema:
+            type: string
+            example: "000001.SZ"
+        - name: calculation_date
+          in: query
+          required: true
+          description: 计算日期，格式：YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+            example: "2024-01-15"
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sentiment/factors/date:
+    get:
+      tags:
+        - sentiment-factors
+      summary: 获取指定日期的所有情绪因子
+      description: 获取指定日期的所有股票情绪因子数据
+      operationId: getSentimentFactorsByDate
+      parameters:
+        - name: calculation_date
+          in: query
+          required: true
+          description: 计算日期，格式：YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+            example: "2024-01-15"
+        - name: limit
+          in: query
+          required: false
+          description: 返回记录数限制
+          schema:
+            type: integer
+            default: 100
+            example: 100
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sentiment/trend:
+    post:
+      tags:
+        - sentiment-factors
+      summary: 获取股票情绪趋势
+      description: 获取指定股票的情绪趋势数据和统计信息
+      operationId: getSentimentTrend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SentimentTrendRequest'
+            examples:
+              trend:
+                summary: 情绪趋势查询
+                value:
+                  stock_code: "000001.SZ"
+                  days: 30
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 统一因子接口
+  /unified/calculate:
+    post:
+      tags:
+        - unified-factors
+      summary: 计算所有类型的因子
+      description: 一次性计算技术、基本面、市场和情绪因子
+      operationId: calculateAllFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnifiedFactorRequest'
+            examples:
+              unified:
+                summary: 统一因子计算
+                value:
+                  stock_code: "000001.SZ"
+                  factor_types: ["technical", "fundamental", "market", "sentiment"]
+                  calculation_date: "2024-01-15"
+                  technical_factors: ["MA", "RSI"]
+                  fundamental_factors: ["ROE", "ROA"]
+                  market_factors: ["total_market_cap"]
+                  period: "2023Q4"
+                  time_window: 7
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedFactorResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /unified/batch-calculate:
+    post:
+      tags:
+        - unified-factors
+      summary: 批量计算所有类型的因子
+      description: 批量计算多个股票的所有类型因子
+      operationId: batchCalculateAllFactors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchUnifiedFactorRequest'
+            examples:
+              batch:
+                summary: 批量统一因子计算
+                value:
+                  stock_codes: ["000001.SZ", "000002.SZ"]
+                  factor_types: ["technical", "market"]
+                  calculation_date: "2024-01-15"
+                  technical_factors: ["MA", "RSI"]
+                  market_factors: ["total_market_cap"]
+                  parallel: true
+      responses:
+        '200':
+          description: 计算成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchUnifiedFactorResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /unified/history:
+    get:
+      tags:
+        - unified-factors
+      summary: 查询所有类型因子的历史数据
+      description: 获取指定股票的所有类型因子历史数据
+      operationId: getAllFactorsHistory
+      parameters:
+        - name: stock_code
+          in: query
+          required: true
+          description: 股票代码
+          schema:
+            type: string
+            example: "000001.SZ"
+        - name: start_date
+          in: query
+          required: true
+          description: 开始日期，格式：YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+            example: "2024-01-01"
+        - name: end_date
+          in: query
+          required: true
+          description: 结束日期，格式：YYYY-MM-DD
+          schema:
+            type: string
+            format: date
+            example: "2024-01-31"
+        - name: technical_factors
+          in: query
+          required: false
+          description: 技术因子列表，逗号分隔
+          schema:
+            type: string
+            example: "MA,RSI,MACD"
+        - name: fundamental_factors
+          in: query
+          required: false
+          description: 基本面因子列表，逗号分隔
+          schema:
+            type: string
+            example: "ROE,ROA"
+        - name: market_factors
+          in: query
+          required: false
+          description: 市场因子列表，逗号分隔
+          schema:
+            type: string
+            example: "total_market_cap,turnover_rate"
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedFactorHistoryResponse'
+        '404':
+          description: 数据未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # 技术因子相关模型
+    TechnicalFactorRequest:
+      type: object
+      required:
+        - stock_code
+        - factors
+      properties:
+        stock_code:
+          type: string
+          description: 股票代码
+          example: "000001.SZ"
+        factors:
+          type: array
+          items:
+            type: string
+          description: 因子列表
+          example: ["MA", "RSI", "MACD"]
+        end_date:
+          type: string
+          format: date
+          description: 计算截止日期，格式：YYYY-MM-DD
+          example: "2024-01-15"
+        period:
+          type: integer
+          description: 计算周期
+          default: 20
+          example: 20
+
+    TechnicalFactorResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        calculation_date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        factors:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: number
+              - type: object
+          example:
+            MA: 12.34
+            RSI: 65.78
+            MACD:
+              macd: 0.12
+              signal: 0.08
+              histogram: 0.04
+
+    TechnicalFactorHistoryResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        factor_name:
+          type: string
+          example: "MA"
+        start_date:
+          type: string
+          format: date
+          example: "2024-01-01"
+        end_date:
+          type: string
+          format: date
+          example: "2024-01-31"
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              oneOf:
+                - type: string
+                - type: number
+
+    BatchTechnicalFactorRequest:
+      type: object
+      required:
+        - stock_codes
+        - factors
+      properties:
+        stock_codes:
+          type: array
+          items:
+            type: string
+          description: 股票代码列表
+          example: ["000001.SZ", "000002.SZ"]
+        factors:
+          type: array
+          items:
+            type: string
+          description: 因子列表
+          example: ["MA", "RSI"]
+        end_date:
+          type: string
+          format: date
+          description: 计算截止日期，格式：YYYY-MM-DD
+          example: "2024-01-15"
+
+    BatchTechnicalFactorResponse:
+      type: object
+      properties:
+        calculation_date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        total_stocks:
+          type: integer
+          example: 2
+        successful_stocks:
+          type: integer
+          example: 2
+        failed_stocks:
+          type: integer
+          example: 0
+        results:
+          type: object
+          additionalProperties:
+            type: object
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+
+    # 基本面因子相关模型
+    FundamentalFactorRequest:
+      type: object
+      required:
+        - stock_code
+        - factors
+        - period
+      properties:
+        stock_code:
+          type: string
+          description: 股票代码
+          example: "000001.SZ"
+        factors:
+          type: array
+          items:
+            type: string
+          description: 因子列表
+          example: ["ROE", "ROA", "GROSS_MARGIN"]
+        period:
+          type: string
+          description: 报告期，格式：2023Q4或2023
+          example: "2023Q4"
+        report_type:
+          type: string
+          description: 报告类型：quarterly或annual
+          default: "quarterly"
+          enum: ["quarterly", "annual"]
+          example: "quarterly"
+
+    FundamentalFactorResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        period:
+          type: string
+          example: "2023Q4"
+        report_type:
+          type: string
+          example: "quarterly"
+        factors:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            ROE: 0.15
+            ROA: 0.08
+            GROSS_MARGIN: 0.25
+        growth_rates:
+          type: object
+          additionalProperties:
+            type: number
+          nullable: true
+          example:
+            ROE_growth: 0.05
+            ROA_growth: 0.02
+
+    BatchFundamentalFactorRequest:
+      type: object
+      required:
+        - stock_codes
+        - factors
+        - period
+      properties:
+        stock_codes:
+          type: array
+          items:
+            type: string
+          description: 股票代码列表
+          example: ["000001.SZ", "000002.SZ"]
+        factors:
+          type: array
+          items:
+            type: string
+          description: 因子列表
+          example: ["ROE", "ROA"]
+        period:
+          type: string
+          description: 报告期，格式：2023Q4或2023
+          example: "2023Q4"
+        report_type:
+          type: string
+          description: 报告类型：quarterly或annual
+          default: "quarterly"
+          enum: ["quarterly", "annual"]
+          example: "quarterly"
+
+    BatchFundamentalFactorResponse:
+      type: object
+      properties:
+        period:
+          type: string
+          example: "2023Q4"
+        report_type:
+          type: string
+          example: "quarterly"
+        total_stocks:
+          type: integer
+          example: 2
+        successful_stocks:
+          type: integer
+          example: 2
+        failed_stocks:
+          type: integer
+          example: 0
+        results:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: number
+        growth_rates:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: number
+          nullable: true
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+
+    # 市场因子相关模型
+    MarketFactorRequest:
+      type: object
+      required:
+        - stock_code
+        - factors
+      properties:
+        stock_code:
+          type: string
+          description: 股票代码
+          example: "000001.SZ"
+        factors:
+          type: array
+          items:
+            type: string
+          description: 因子列表
+          example: ["total_market_cap", "turnover_rate"]
+        trade_date:
+          type: string
+          format: date
+          description: 交易日期，格式：YYYY-MM-DD
+          example: "2024-01-15"
+
+    MarketFactorResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        trade_date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        factors:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            total_market_cap: 1000000000
+            turnover_rate: 0.05
+
+    MarketFactorHistoryResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        factor_name:
+          type: string
+          example: "total_market_cap"
+        start_date:
+          type: string
+          format: date
+          example: "2024-01-01"
+        end_date:
+          type: string
+          format: date
+          example: "2024-01-31"
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              oneOf:
+                - type: string
+                - type: number
+
+    BatchMarketFactorRequest:
+      type: object
+      required:
+        - stock_codes
+        - factors
+      properties:
+        stock_codes:
+          type: array
+          items:
+            type: string
+          description: 股票代码列表
+          example: ["000001.SZ", "600000.SH"]
+        factors:
+          type: array
+          items:
+            type: string
+          description: 因子列表
+          example: ["total_market_cap", "turnover_rate"]
+        trade_date:
+          type: string
+          format: date
+          description: 交易日期，格式：YYYY-MM-DD
+          example: "2024-01-15"
+
+    BatchMarketFactorResponse:
+      type: object
+      properties:
+        trade_date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        total_stocks:
+          type: integer
+          example: 2
+        successful_stocks:
+          type: integer
+          example: 2
+        failed_stocks:
+          type: integer
+          example: 0
+        results:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: number
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+
+    # 情绪因子相关模型
+    SentimentFactorRequest:
+      type: object
+      required:
+        - stock_code
+        - date
+      properties:
+        stock_code:
+          type: string
+          description: 股票代码
+          minLength: 6
+          maxLength: 10
+          example: "000001.SZ"
+        date:
+          type: string
+          format: date
+          description: 计算日期，格式：YYYY-MM-DD
+          example: "2024-01-15"
+        sources:
+          type: array
+          items:
+            type: string
+          description: 数据源列表
+          default: ["news", "announcements", "policies"]
+          example: ["news", "announcements"]
+        time_window:
+          type: integer
+          description: 时间窗口（天）
+          default: 7
+          example: 7
+
+    SentimentFactorResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        sentiment_factors:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            sentiment_score: 0.65
+            positive_ratio: 0.7
+            negative_ratio: 0.2
+            neutral_ratio: 0.1
+        source_weights:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            news: 0.6
+            announcements: 0.4
+        data_counts:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            news: 15
+            announcements: 3
+
+    BatchSentimentFactorRequest:
+      type: object
+      required:
+        - stock_codes
+        - calculation_date
+      properties:
+        stock_codes:
+          type: array
+          items:
+            type: string
+          description: 股票代码列表
+          example: ["000001.SZ", "000002.SZ"]
+        calculation_date:
+          type: string
+          format: date
+          description: 计算日期，格式：YYYY-MM-DD
+          example: "2024-01-15"
+        days_back:
+          type: integer
+          description: 向前追溯天数
+          default: 7
+          minimum: 1
+          maximum: 30
+          example: 7
+        use_model:
+          type: boolean
+          description: 是否使用深度学习模型
+          default: true
+          example: true
+
+    BatchSentimentFactorResponse:
+      type: object
+      properties:
+        calculation_date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        total_stocks:
+          type: integer
+          example: 2
+        successful_stocks:
+          type: integer
+          example: 2
+        failed_stocks:
+          type: integer
+          example: 0
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SentimentFactorResponse'
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+          nullable: true
+
+    SentimentTrendRequest:
+      type: object
+      required:
+        - stock_code
+      properties:
+        stock_code:
+          type: string
+          description: 股票代码
+          example: "000001.SZ"
+        days:
+          type: integer
+          description: 查询天数
+          default: 30
+          minimum: 1
+          maximum: 365
+          example: 30
+
+    SentimentTrendResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        period:
+          type: string
+          example: "30 days"
+        daily_factors:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              oneOf:
+                - type: string
+                - type: number
+        statistics:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+          example:
+            avg_sentiment: 0.65
+            max_sentiment: 0.85
+            min_sentiment: 0.45
+            volatility: 0.12
+
+    # 统一因子相关模型
+    UnifiedFactorRequest:
+      type: object
+      required:
+        - stock_code
+      properties:
+        stock_code:
+          type: string
+          description: 股票代码
+          example: "000001.SZ"
+        factor_types:
+          type: array
+          items:
+            type: string
+            enum: ["technical", "fundamental", "market", "sentiment"]
+          description: 因子类型列表
+          default: ["technical", "fundamental", "market", "sentiment"]
+          example: ["technical", "market"]
+        calculation_date:
+          type: string
+          format: date
+          description: 计算日期，格式：YYYY-MM-DD
+          example: "2024-01-15"
+        technical_factors:
+          type: array
+          items:
+            type: string
+          description: 技术因子列表
+          default: ["MA", "RSI", "MACD"]
+          example: ["MA", "RSI"]
+        fundamental_factors:
+          type: array
+          items:
+            type: string
+          description: 基本面因子列表
+          default: ["ROE", "ROA", "GROSS_MARGIN"]
+          example: ["ROE", "ROA"]
+        market_factors:
+          type: array
+          items:
+            type: string
+          description: 市场因子列表
+          default: ["total_market_cap", "turnover_rate"]
+          example: ["total_market_cap"]
+        sentiment_factors:
+          type: array
+          items:
+            type: string
+          description: 情绪因子列表
+          default: ["news_sentiment", "social_sentiment"]
+          example: ["news_sentiment"]
+        period:
+          type: string
+          description: 基本面因子报告期，格式：2023Q4或2023
+          example: "2023Q4"
+        time_window:
+          type: integer
+          description: 情绪因子时间窗口（天）
+          default: 7
+          example: 7
+
+    UnifiedFactorResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        calculation_date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        technical_factors:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: number
+              - type: object
+          nullable: true
+          example:
+            MA: 12.34
+            RSI: 65.78
+        fundamental_factors:
+          type: object
+          additionalProperties:
+            type: number
+          nullable: true
+          example:
+            ROE: 0.15
+            ROA: 0.08
+        market_factors:
+          type: object
+          additionalProperties:
+            type: number
+          nullable: true
+          example:
+            total_market_cap: 1000000000
+        sentiment_factors:
+          type: object
+          additionalProperties:
+            type: number
+          nullable: true
+          example:
+            news_sentiment: 0.65
+        calculation_summary:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: integer
+          example:
+            total_factors: 4
+            calculation_time: "2.5s"
+            status: "success"
+
+    BatchUnifiedFactorRequest:
+      type: object
+      required:
+        - stock_codes
+      properties:
+        stock_codes:
+          type: array
+          items:
+            type: string
+          description: 股票代码列表
+          example: ["000001.SZ", "000002.SZ"]
+        factor_types:
+          type: array
+          items:
+            type: string
+            enum: ["technical", "fundamental", "market", "sentiment"]
+          description: 因子类型列表
+          default: ["technical", "fundamental", "market", "sentiment"]
+          example: ["technical", "market"]
+        calculation_date:
+          type: string
+          format: date
+          description: 计算日期，格式：YYYY-MM-DD
+          example: "2024-01-15"
+        technical_factors:
+          type: array
+          items:
+            type: string
+          description: 技术因子列表
+          default: ["MA", "RSI", "MACD"]
+          example: ["MA", "RSI"]
+        fundamental_factors:
+          type: array
+          items:
+            type: string
+          description: 基本面因子列表
+          default: ["ROE", "ROA", "GROSS_MARGIN"]
+          example: ["ROE", "ROA"]
+        market_factors:
+          type: array
+          items:
+            type: string
+          description: 市场因子列表
+          default: ["total_market_cap", "turnover_rate"]
+          example: ["total_market_cap"]
+        period:
+          type: string
+          description: 基本面因子报告期，格式：2023Q4或2023
+          example: "2023Q4"
+        time_window:
+          type: integer
+          description: 情绪因子时间窗口（天）
+          default: 7
+          example: 7
+        parallel:
+          type: boolean
+          description: 是否并行计算
+          default: true
+          example: true
+
+    BatchUnifiedFactorResponse:
+      type: object
+      properties:
+        calculation_date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        total_stocks:
+          type: integer
+          example: 2
+        successful_stocks:
+          type: integer
+          example: 2
+        failed_stocks:
+          type: integer
+          example: 0
+        results:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/UnifiedFactorResponse'
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+        performance_metrics:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: number
+              - type: integer
+          nullable: true
+          example:
+            total_time: 5.2
+            avg_time_per_stock: 2.6
+            parallel_efficiency: 0.85
+
+    UnifiedFactorHistoryResponse:
+      type: object
+      properties:
+        stock_code:
+          type: string
+          example: "000001.SZ"
+        start_date:
+          type: string
+          format: date
+          example: "2024-01-01"
+        end_date:
+          type: string
+          format: date
+          example: "2024-01-31"
+        technical_history:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              oneOf:
+                - type: string
+                - type: number
+          nullable: true
+        fundamental_history:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              oneOf:
+                - type: string
+                - type: number
+          nullable: true
+        market_history:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              oneOf:
+                - type: string
+                - type: number
+          nullable: true
+        sentiment_history:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              oneOf:
+                - type: string
+                - type: number
+          nullable: true
+        data_summary:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            technical_count: 31
+            fundamental_count: 4
+            market_count: 31
+            sentiment_count: 31
+
+    # 通用响应模型
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 响应状态码
+          default: 200
+          example: 200
+        message:
+          type: string
+          description: 响应消息
+          default: "success"
+          example: "操作成功"
+        data:
+          oneOf:
+            - type: object
+            - type: array
+            - type: string
+            - type: integer
+            - type: number
+            - type: "null"
+          description: 响应数据
+          example: {}
+        timestamp:
+          type: string
+          format: date-time
+          description: 响应时间戳
+          example: "2024-01-15T10:30:00Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: 错误状态码
+          example: 400
+        message:
+          type: string
+          description: 错误消息
+          example: "请求参数错误"
+        detail:
+          type: string
+          description: 错误详情
+          nullable: true
+          example: "股票代码格式不正确"
+        timestamp:
+          type: string
+          format: date-time
+          description: 错误时间戳
+          example: "2024-01-15T10:30:00Z"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API密钥认证
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT令牌认证
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []

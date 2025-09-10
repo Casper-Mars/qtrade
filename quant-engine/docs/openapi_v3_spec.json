@@ -1,0 +1,483 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "量化因子计算引擎 API",
+    "description": "提供技术因子、基本面因子、市场因子、情绪因子和统一因子计算服务的API接口",
+    "version": "1.0.0",
+    "contact": {
+      "name": "量化团队",
+      "email": "quant@example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "本地开发环境"
+    },
+    {
+      "url": "https://api.qtrade.com",
+      "description": "生产环境"
+    }
+  ],
+  "tags": [
+    {
+      "name": "technical-factors",
+      "description": "技术因子计算相关接口"
+    },
+    {
+      "name": "fundamental-factors",
+      "description": "基本面因子计算相关接口"
+    },
+    {
+      "name": "market-factors",
+      "description": "市场因子计算相关接口"
+    },
+    {
+      "name": "sentiment-factors",
+      "description": "情绪因子计算相关接口"
+    },
+    {
+      "name": "unified-factors",
+      "description": "统一因子计算相关接口"
+    }
+  ],
+  "paths": {
+    "/technical/calculate": {
+      "post": {
+        "tags": ["technical-factors"],
+        "summary": "计算技术因子",
+        "description": "根据股票代码和日期计算技术因子",
+        "operationId": "calculateTechnicalFactors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TechnicalFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "计算成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnicalFactorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fundamental/calculate": {
+      "post": {
+        "tags": ["fundamental-factors"],
+        "summary": "计算基本面因子",
+        "description": "根据股票代码和日期计算基本面因子",
+        "operationId": "calculateFundamentalFactors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundamentalFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "计算成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundamentalFactorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/market/calculate": {
+      "post": {
+        "tags": ["market-factors"],
+        "summary": "计算市场因子",
+        "description": "根据股票代码和日期计算市场因子",
+        "operationId": "calculateMarketFactors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "计算成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketFactorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sentiment/calculate": {
+      "post": {
+        "tags": ["sentiment-factors"],
+        "summary": "计算情绪因子",
+        "description": "根据股票代码和日期计算情绪因子",
+        "operationId": "calculateSentimentFactor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SentimentFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "计算成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentimentFactorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/unified/calculate": {
+      "post": {
+        "tags": ["unified-factors"],
+        "summary": "计算统一因子",
+        "description": "根据股票代码和日期计算所有类型的因子",
+        "operationId": "calculateAllFactors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnifiedFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "计算成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnifiedFactorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TechnicalFactorRequest": {
+        "type": "object",
+        "required": ["stock_code", "date"],
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "description": "股票代码",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "计算日期",
+            "example": "2024-01-15"
+          },
+          "factors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "指定计算的因子列表",
+            "example": ["ma_5", "ma_20", "rsi"]
+          }
+        }
+      },
+      "TechnicalFactorResponse": {
+        "type": "object",
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-01-15"
+          },
+          "factors": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "计算得到的技术因子"
+          }
+        }
+      },
+      "FundamentalFactorRequest": {
+        "type": "object",
+        "required": ["stock_code", "date"],
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "description": "股票代码",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "计算日期",
+            "example": "2024-01-15"
+          },
+          "factors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "指定计算的因子列表"
+          }
+        }
+      },
+      "FundamentalFactorResponse": {
+        "type": "object",
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-01-15"
+          },
+          "factors": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "计算得到的基本面因子"
+          }
+        }
+      },
+      "MarketFactorRequest": {
+        "type": "object",
+        "required": ["stock_code", "date"],
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "description": "股票代码",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "计算日期",
+            "example": "2024-01-15"
+          },
+          "factors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "指定计算的因子列表"
+          }
+        }
+      },
+      "MarketFactorResponse": {
+        "type": "object",
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-01-15"
+          },
+          "factors": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "计算得到的市场因子"
+          }
+        }
+      },
+      "SentimentFactorRequest": {
+        "type": "object",
+        "required": ["stock_code", "date"],
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "description": "股票代码",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "计算日期",
+            "example": "2024-01-15"
+          }
+        }
+      },
+      "SentimentFactorResponse": {
+        "type": "object",
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-01-15"
+          },
+          "sentiment_score": {
+            "type": "number",
+            "format": "float",
+            "description": "情绪得分"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "float",
+            "description": "置信度"
+          }
+        }
+      },
+      "UnifiedFactorRequest": {
+        "type": "object",
+        "required": ["stock_code", "date"],
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "description": "股票代码",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "计算日期",
+            "example": "2024-01-15"
+          },
+          "include_technical": {
+            "type": "boolean",
+            "description": "是否包含技术因子",
+            "default": true
+          },
+          "include_fundamental": {
+            "type": "boolean",
+            "description": "是否包含基本面因子",
+            "default": true
+          },
+          "include_market": {
+            "type": "boolean",
+            "description": "是否包含市场因子",
+            "default": true
+          },
+          "include_sentiment": {
+            "type": "boolean",
+            "description": "是否包含情绪因子",
+            "default": true
+          }
+        }
+      },
+      "UnifiedFactorResponse": {
+        "type": "object",
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "example": "000001.SZ"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-01-15"
+          },
+          "technical_factors": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "fundamental_factors": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "market_factors": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "sentiment_factors": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "请求是否成功",
+            "example": false
+          },
+          "error_code": {
+            "type": "string",
+            "description": "错误代码",
+            "example": "INVALID_STOCK_CODE"
+          },
+          "message": {
+            "type": "string",
+            "description": "错误消息",
+            "example": "无效的股票代码"
+          },
+          "details": {
+            "type": "object",
+            "description": "错误详情",
+            "nullable": true
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "错误时间戳",
+            "example": "2024-01-15T10:30:00Z"
+          }
+        }
+      }
+    }
+  }
+}

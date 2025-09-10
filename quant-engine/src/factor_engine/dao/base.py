@@ -472,19 +472,26 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
         )
 
     def get_by_stock_and_date(
-        self, stock_code: str, calculation_date: date
+        self, stock_code: str, calculation_date: str
     ) -> list[SentimentFactor]:
         """根据股票代码和计算日期获取新闻情绪因子数据"""
-        return (
-            self.db_session.query(SentimentFactor)
-            .filter(
-                and_(
-                    SentimentFactor.stock_code == stock_code,
-                    SentimentFactor.calculation_date == calculation_date,
+        try:
+            # 将字符串日期转换为date对象
+            date_obj = datetime.strptime(calculation_date, "%Y-%m-%d").date()
+            
+            return (
+                self.db_session.query(SentimentFactor)
+                .filter(
+                    and_(
+                        SentimentFactor.stock_code == stock_code,
+                        SentimentFactor.calculation_date == date_obj,
+                    )
                 )
+                .all()
             )
-            .all()
-        )
+        except Exception as e:
+            logger.error(f"获取情绪因子数据失败: {e}")
+            return []
 
     def update(self, factor_id: int, **kwargs: Any) -> bool:
         """更新新闻情绪因子数据"""
@@ -534,6 +541,33 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
             .all()
         )
 
+    def get_sentiment_factors_by_date(
+        self, calculation_date: str, limit: int = 100
+    ) -> list[SentimentFactor]:
+        """获取指定日期的所有情绪因子
+        
+        Args:
+            calculation_date: 计算日期 (YYYY-MM-DD)
+            limit: 返回记录数限制
+            
+        Returns:
+            list[SentimentFactor]: 情绪因子列表
+        """
+        try:
+            # 将字符串日期转换为date对象
+            date_obj = datetime.strptime(calculation_date, "%Y-%m-%d").date()
+            
+            return (
+                self.db_session.query(SentimentFactor)
+                .filter(SentimentFactor.calculation_date == date_obj)
+                .order_by(desc(SentimentFactor.factor_value))
+                .limit(limit)
+                .all()
+            )
+        except Exception as e:
+            logger.error(f"获取日期情绪因子数据失败: {e}")
+            return []
+
     @staticmethod
     async def save_sentiment_factor(
         stock_code: str,
@@ -579,14 +613,15 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
 
         try:
             async with get_db_session() as session:
+                # 转换日期格式
+                calc_date = datetime.strptime(calculation_date, "%Y-%m-%d").date()
+                
                 # 检查是否已存在相同记录
                 existing = await session.execute(
                     select(SentimentFactor).where(
                         and_(
                             SentimentFactor.stock_code == stock_code,
-                            SentimentFactor.calculation_date == calculation_date,
-                            SentimentFactor.start_date == start_date,
-                            SentimentFactor.end_date == end_date,
+                            SentimentFactor.calculation_date == calc_date,
                         )
                     )
                 )
@@ -594,13 +629,8 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
 
                 if existing_record:
                     # 更新现有记录
-                    existing_record.sentiment_factor = sentiment_factor
-                    existing_record.positive_score = positive_score
-                    existing_record.negative_score = negative_score
-                    existing_record.neutral_score = neutral_score
-                    existing_record.confidence = confidence
+                    existing_record.factor_value = sentiment_factor
                     existing_record.news_count = news_count
-                    existing_record.volume_adjustment = volume_adjustment
                     existing_record.updated_at = datetime.now()
 
                     await session.commit()
@@ -610,16 +640,9 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
                     # 创建新记录
                     sentiment_factor_record = SentimentFactor(
                         stock_code=stock_code,
-                        sentiment_factor=sentiment_factor,
-                        positive_score=positive_score,
-                        negative_score=negative_score,
-                        neutral_score=neutral_score,
-                        confidence=confidence,
+                        factor_value=sentiment_factor,
+                        calculation_date=calc_date,
                         news_count=news_count,
-                        calculation_date=calculation_date,
-                        start_date=start_date,
-                        end_date=end_date,
-                        volume_adjustment=volume_adjustment,
                     )
 
                     session.add(sentiment_factor_record)
@@ -713,10 +736,13 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
 
         try:
             async with get_db_session() as session:
+                # 将字符串日期转换为date对象
+                date_obj = datetime.strptime(calculation_date, "%Y-%m-%d").date()
+                
                 result = await session.execute(
                     select(SentimentFactor)
-                    .where(SentimentFactor.calculation_date == calculation_date)
-                    .order_by(desc(SentimentFactor.sentiment_factor))
+                    .where(SentimentFactor.calculation_date == date_obj)
+                    .order_by(desc(SentimentFactor.factor_value))
                     .limit(limit)
                 )
                 records = result.scalars().all()
@@ -724,13 +750,9 @@ class NewsSentimentFactorDAO(BaseFactorDAO):
                 return [
                     SentimentFactorResponse(
                         stock_code=record.stock_code,
-                        date=record.calculation_date,
+                        date=record.calculation_date.isoformat(),
                         sentiment_factors={
-                            "sentiment_factor": record.sentiment_factor,
-                            "positive_score": record.positive_score,
-                            "negative_score": record.negative_score,
-                            "neutral_score": record.neutral_score,
-                            "confidence": record.confidence,
+                            "sentiment_factor": record.factor_value,
                         },
                         source_weights={"news": 1.0},
                         data_counts={"news_count": record.news_count},

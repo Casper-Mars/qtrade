@@ -198,35 +198,67 @@ class SentimentFactorService:
             logger.error(f"批量计算情感因子失败: {e}")
             raise
     
-    async def get_sentiment_factor(self, stock_code: str, calculation_date: str) -> Optional[Dict[str, Any]]:
-        """获取股票情感因子
+    async def get_sentiment_factor(self, stock_code: str, date: str) -> Optional[Dict[str, Any]]:
+        """获取单个股票的情感因子数据
         
         Args:
             stock_code: 股票代码
-            calculation_date: 计算日期
+            date: 日期 (YYYY-MM-DD)
             
         Returns:
             情感因子数据或None
         """
-        return await NewsSentimentFactorDAO.get_sentiment_factor(
-            stock_code=stock_code,
-            calculation_date=calculation_date,
-        )
+        try:
+            dao = self._get_dao()
+            factors = dao.get_by_stock_and_date(stock_code, date)
+            
+            if not factors:
+                return None
+                
+            # 取第一个因子数据（通常一个股票一天只有一条记录）
+            factor = factors[0]
+            return {
+                "id": factor.id,
+                "stock_code": factor.stock_code,
+                "factor_value": factor.factor_value,
+                "calculation_date": factor.calculation_date.isoformat(),
+                "news_count": factor.news_count,
+                "created_at": factor.created_at.isoformat(),
+                "updated_at": factor.updated_at.isoformat()
+            }
+        except Exception as e:
+            logger.error(f"获取情感因子数据失败: {e}")
+            raise
     
-    async def get_sentiment_factors_by_date(self, calculation_date: str, limit: int = 100) -> List[Dict[str, Any]]:
-        """获取指定日期的所有情感因子
+    async def get_sentiment_factors_by_date(self, date: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """获取指定日期的所有情感因子数据
         
         Args:
-            calculation_date: 计算日期
-            limit: 返回记录数限制
+            date: 日期 (YYYY-MM-DD)
+            limit: 返回数量限制
             
         Returns:
             情感因子数据列表
         """
-        return await NewsSentimentFactorDAO.get_sentiment_factors_by_date(
-            calculation_date=calculation_date,
-            limit=limit,
-        )
+        try:
+            dao = self._get_dao()
+            factors = await dao.get_sentiment_factors_by_date(date, limit)
+            
+            # 转换为字典格式
+            result = []
+            for factor in factors:
+                result.append({
+                    "stock_code": factor.stock_code,
+                    "date": factor.date,
+                    "sentiment_factors": factor.sentiment_factors,
+                    "source_weights": factor.source_weights,
+                    "data_counts": factor.data_counts
+                })
+            
+            return result
+        except Exception as e:
+            logger.error(f"获取日期情感因子数据失败: {e}")
+            raise
     
     async def get_sentiment_trend(self, request: SentimentTrendRequest) -> SentimentTrendResponse:
         """获取股票情感趋势
@@ -237,62 +269,28 @@ class SentimentFactorService:
         Returns:
             SentimentTrendResponse: 趋势数据响应
         """
-        # 获取趋势数据
-        trend_data = await NewsSentimentFactorDAO.get_sentiment_trend(
-            stock_code=request.stock_code,
-            days=request.days,
-        )
-        
-        # 获取统计数据
-        statistics = await NewsSentimentFactorDAO.get_sentiment_statistics(
-            stock_code=request.stock_code,
-            days=request.days,
-        )
-        
-        return SentimentTrendResponse(
-            stock_code=request.stock_code,
-            period=f"{request.days}天",
-            daily_factors=trend_data,
-            statistics=statistics,
-        )
-    
-    async def health_check(self) -> Dict[str, Any]:
-        """健康检查
-        
-        Returns:
-            健康检查结果
-        """
         try:
-            # 检查模型状态
-            model_status = {
-                "nlp_model_loaded": True,
-                "sentiment_analyzer_ready": True
-            }
+            dao = self._get_dao()
             
-            # 检查数据库连接
-            try:
-                # 尝试查询一条记录来测试数据库连接
-                await NewsSentimentFactorDAO.get_sentiment_factors_by_date(
-                    calculation_date="2024-01-01",
-                    limit=1
-                )
-                db_status = "healthy"
-            except Exception:
-                db_status = "unhealthy"
+            # 获取趋势数据
+            trend_data = await dao.get_sentiment_trend(
+                stock_code=request.stock_code,
+                days=request.days,
+            )
             
-            return {
-                "service": "sentiment-factor",
-                "status": "healthy" if model_status.get("nlp_model_loaded") and db_status == "healthy" else "unhealthy",
-                "model_status": model_status,
-                "database_status": db_status,
-                "timestamp": datetime.now().isoformat(),
-            }
+            # 获取统计数据
+            statistics = await dao.get_sentiment_statistics(
+                stock_code=request.stock_code,
+                days=request.days,
+            )
+            
+            return SentimentTrendResponse(
+                stock_code=request.stock_code,
+                period=f"{request.days}天",
+                daily_factors=trend_data,
+                statistics=statistics,
+            )
             
         except Exception as e:
-            logger.error(f"健康检查失败: {e}")
-            return {
-                "service": "sentiment-factor",
-                "status": "unhealthy",
-                "error": str(e),
-                "timestamp": datetime.now().isoformat(),
-            }
+            logger.error(f"获取情感趋势失败: {e}")
+            raise
